@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,42 +52,56 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
     LaunchedEffect(Unit) { refresh() }
 
-    Column(modifier.fillMaxSize().background(Bg)) {
+    val m = uiMetrics()
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(Bg)
+            // Six setting lines plus the storage row do not fit a phone in
+            // portrait; without a scroll the last row was unreachable.
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = m.d(28.dp)),
+    ) {
         Row(
-            modifier = Modifier.padding(start = TvDimens.contentStart, top = 28.dp, bottom = 16.dp),
+            modifier = Modifier.padding(
+                start = m.d(TvDimens.contentStart),
+                end = m.d(TvDimens.contentStart),
+                top = m.d(24.dp),
+                bottom = m.d(14.dp),
+            ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 "DX",
                 color = BrandAccent,
-                fontSize = 28.sp,
+                fontSize = m.f(25f),
                 fontWeight = FontWeight.Black,
-                letterSpacing = (-1.5).sp,
+                letterSpacing = m.f(-1.4f),
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(m.d(9.dp)))
             Column {
                 Text(
                     "Digi X TV",
                     color = OnBg,
-                    fontSize = 24.sp,
+                    fontSize = m.f(21f),
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     "Settings & Preferences",
                     color = Muted,
-                    fontSize = 13.sp,
+                    fontSize = m.f(12f),
                 )
             }
         }
 
         SettingLine("App Name", "Digi X TV")
-        SettingLine("Version", "${dev.digi.digix.BuildConfig.VERSION_NAME} (TV Edition)")
+        SettingLine("Version", "${dev.digi.digix.BuildConfig.VERSION_NAME} (TV / Mobile)")
         SettingLine("UI Theme", "Cinema Dark (4K HDR)")
         SettingLine("Addons & Catalogs", "Managed dynamically via Addons tab")
         SettingLine("Playback Engine", "ExoPlayer Hardware Decoding & High-Performance Torrent Engine")
         SettingLine("Account", "Not required — fully local, zero tracking")
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(m.d(9.dp)))
 
         ActionLine(
             title = "Storage & Memory",
@@ -106,8 +122,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Text(
                 it,
                 color = BrandSuccess,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = TvDimens.contentStart, top = 6.dp),
+                fontSize = m.f(11.5f),
+                modifier = Modifier.padding(start = m.d(TvDimens.contentStart), top = m.d(6.dp)),
             )
         }
     }
@@ -115,17 +131,18 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun SettingLine(title: String, value: String) {
+    val m = uiMetrics()
     Column(
         Modifier
-            .padding(horizontal = TvDimens.contentStart, vertical = 5.dp)
-            .fillMaxWidth(0.72f)
-            .clip(RoundedCornerShape(TvDimens.corner))
+            .padding(horizontal = m.d(TvDimens.contentStart), vertical = m.d(4.dp))
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(m.d(TvDimens.corner)))
             .background(Surface)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = m.d(18.dp), vertical = m.d(12.dp)),
     ) {
-        Text(title, color = OnBg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(3.dp))
-        Text(value, color = Muted, fontSize = 13.sp)
+        Text(title, color = OnBg, fontSize = m.f(14f), fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(m.d(3.dp)))
+        Text(value, color = Muted, fontSize = m.f(12f))
     }
 }
 
@@ -139,28 +156,29 @@ private fun ActionLine(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     Row(
         Modifier
-            .padding(horizontal = TvDimens.contentStart, vertical = 5.dp)
-            .fillMaxWidth(0.72f)
+            .padding(horizontal = m.d(TvDimens.contentStart), vertical = m.d(4.dp))
+            .fillMaxWidth()
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(TvDimens.corner))
+            .clip(RoundedCornerShape(m.d(TvDimens.corner)))
             .background(if (focused) SurfaceFocused else Surface)
-            .border(1.dp, if (focused) BrandAccent else SurfaceHigh, RoundedCornerShape(TvDimens.corner))
+            .border(m.d(1.dp), if (focused) BrandAccent else SurfaceHigh, RoundedCornerShape(m.d(TvDimens.corner)))
             .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = m.d(18.dp), vertical = m.d(12.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = OnBg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(3.dp))
-            Text(value, color = Muted, fontSize = 13.sp)
+            Text(title, color = OnBg, fontSize = m.f(14f), fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(m.d(3.dp)))
+            Text(value, color = Muted, fontSize = m.f(12f))
         }
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(m.d(14.dp)))
         Text(
             action,
             color = if (enabled) BrandAccent else MutedDim,
-            fontSize = 13.sp,
+            fontSize = m.f(12f),
             fontWeight = FontWeight.Bold,
         )
     }

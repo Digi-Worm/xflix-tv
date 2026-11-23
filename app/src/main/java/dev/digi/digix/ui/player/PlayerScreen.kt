@@ -58,6 +58,8 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -97,6 +99,7 @@ import dev.digi.digix.ui.theme.Accent
 import dev.digi.digix.ui.theme.Bg
 import dev.digi.digix.ui.theme.Muted
 import dev.digi.digix.ui.theme.OnBg
+import dev.digi.digix.ui.theme.OnAccent
 import dev.digi.digix.ui.theme.BrandAccent
 import dev.digi.digix.ui.theme.SurfaceFocused
 import dev.digi.digix.ui.theme.ResponsiveScope
@@ -1117,7 +1120,26 @@ fun PlayerScreen(
             update = { view ->
                 view.resizeMode = ASPECT_MODES[aspectIndex].first
             },
-            modifier = Modifier.fillMaxSize(),
+            // On a phone there is no key event to reveal the deck, so tapping the
+            // picture is the only way in. On a TV this is harmless: the remote
+            // still drives everything and the tap handler simply never fires.
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            if (panel != Panel.None) {
+                                panel = Panel.None
+                            } else if (!overlayVisible) {
+                                overlayVisible = true
+                            } else {
+                                // Second tap on the picture toggles playback, which
+                                // is the convention on every mobile player.
+                                activateControl(Control.PlayPause)
+                            }
+                        },
+                    )
+                },
         )
 
         // Title + status, top left
@@ -1127,18 +1149,19 @@ fun PlayerScreen(
             exit = fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing)),
             modifier = Modifier.align(Alignment.TopStart),
         ) {
+            val m = uiMetrics()
             Column(
                 Modifier
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))
                     )
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = m.d(20.dp), vertical = m.d(11.dp)),
             ) {
                 Text(
                     title ?: currentStream.displayName,
                     color = OnBg,
-                    fontSize = 20.sp,
+                    fontSize = m.f(15f),
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1218,14 +1241,14 @@ fun PlayerScreen(
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Transparent, Color(0x7A000000), Color(0xA6000000))
+                            listOf(Color.Transparent, Color(0x59000000), Color(0x8C000000))
                         )
                     )
                     .padding(
-                        start = m.d(24.dp),
-                        end = m.d(24.dp),
-                        top = m.d(22.dp),
-                        bottom = m.d(14.dp),
+                        start = m.d(20.dp),
+                        end = m.d(20.dp),
+                        top = m.d(9.dp),
+                        bottom = m.d(7.dp),
                     ),
             ) {
                 // Timeline row: elapsed on the left, remaining on the right, and
@@ -1236,11 +1259,11 @@ fun PlayerScreen(
                     Text(
                         clock(positionMs),
                         color = OnBg,
-                        fontSize = m.f(12f),
+                        fontSize = m.f(10.5f),
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                     )
-                    Box(Modifier.weight(1f).padding(horizontal = m.d(12.dp))) {
+                    Box(Modifier.weight(1f).padding(horizontal = m.d(9.dp))) {
                         SeekBar(
                             positionMs = positionMs,
                             durationMs = durationMs,
@@ -1257,18 +1280,22 @@ fun PlayerScreen(
                     Text(
                         if (durationMs > 0) clock(durationMs) else "--:--",
                         color = OnBg.copy(alpha = 0.62f),
-                        fontSize = m.f(12f),
+                        fontSize = m.f(10.5f),
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                     )
                 }
 
-                Spacer(Modifier.height(m.d(10.dp)))
+                Spacer(Modifier.height(m.d(6.dp)))
                 //
                 // Two clusters, pushed to opposite ends: transport on the left
-                // (where the eye starts), settings on the right. FlowRow still
-                // wraps them onto a second line on a narrow panel, so nothing is
-                // ever clipped on a phone or tablet.
+                // (where the eye starts), settings on the right.
+                //
+                // The settings used to be a FlowRow, which wrapped onto a second
+                // and third line once the panel narrowed — the deck then covered
+                // a large slice of the picture, which is the opposite of the
+                // point. They are one horizontally scrollable line instead, so the
+                // deck keeps a fixed, short height on every device.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1316,12 +1343,13 @@ fun PlayerScreen(
 
                     // Settings cluster: one pill per setting, showing its current
                     // value in plain words ("Audio English", "Quality 1080p").
-                    // FlowRow lets this wrap under the transport controls on a
-                    // narrow panel instead of being clipped.
-                    FlowRow(
+                    // Single scrollable line, so it can never grow the deck's height.
+                    Row(
                         horizontalArrangement = Arrangement.spacedBy(m.d(6.dp)),
-                        verticalArrangement = Arrangement.spacedBy(m.d(4.dp)),
-                        modifier = Modifier.weight(1f, fill = false),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .horizontalScroll(rememberScrollState()),
                     ) {
                         DeckPill(
                             icon = Icons.Filled.VolumeUp,
@@ -1391,33 +1419,29 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(Modifier.height(m.d(5.dp)))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        // Plain words only: this panel's font has no glyphs for
-                        // arrow/triangle symbols, which used to render as "?".
-                        if (seekFocused) {
-                            "Left / Right seek 10s      OK play or pause"
-                        } else {
-                            "Left / Right navigate      OK select      Down for seekbar"
-                        },
-                        color = Muted.copy(alpha = 0.38f),
-                        fontSize = m.f(8.5f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(m.d(10.dp)))
-                    Text(
-                        "Developed by Digi",
-                        color = Accent.copy(alpha = 0.5f),
-                        fontSize = m.f(8.5f),
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                    )
+                // D-pad hints are meaningless on a phone and cost a whole row of
+                // picture, so they only render where there is a remote.
+                if (!m.isTouch) {
+                    Spacer(Modifier.height(m.d(5.dp)))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            // Plain words only: this panel's font has no glyphs for
+                            // arrow/triangle symbols, which used to render as "?".
+                            if (seekFocused) {
+                                "Left / Right seek 10s      OK play or pause"
+                            } else {
+                                "Left / Right navigate      OK select      Down for seekbar"
+                            },
+                            color = Muted.copy(alpha = 0.34f),
+                            fontSize = m.f(7.5f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }
@@ -1426,7 +1450,7 @@ fun PlayerScreen(
             visible = panel != Panel.None,
             enter = fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)),
             exit = fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing)),
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 40.dp),
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = uiMetrics().d(24.dp)),
         ) {
             OptionsPanel(
                 title = when (panel) {
@@ -1448,19 +1472,20 @@ fun PlayerScreen(
             exit = fadeOut(animationSpec = tween(400)),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 28.dp),
+                .padding(top = 26.dp),
         ) {
             hudNotification?.let { msg ->
+                val hm = uiMetrics()
                 Box(
                     Modifier
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(hm.d(20.dp)))
                         .background(Color(0xEE141414))
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                        .padding(horizontal = hm.d(18.dp), vertical = hm.d(9.dp)),
                 ) {
                     Text(
                         msg,
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = hm.f(12f),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -1473,19 +1498,21 @@ fun PlayerScreen(
             exit = fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing)),
         ) {
             error?.let {
+                val em = uiMetrics()
                 Box(
                     Modifier.fillMaxSize().background(Color(0xF2000000)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(
                         Modifier
-                            .width(420.dp)
-                            .padding(horizontal = 24.dp, vertical = 20.dp),
+                            .widthIn(max = em.d(400.dp))
+                            .fillMaxWidth(0.86f)
+                            .padding(horizontal = em.d(22.dp), vertical = em.d(18.dp)),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(it, color = OnBg, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(16.dp))
-                        Text("Press Back to return", color = Muted, fontSize = 12.sp)
+                        Text(it, color = OnBg, fontSize = em.f(15f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(em.d(14.dp)))
+                        Text("Press Back to return", color = Muted, fontSize = em.f(11.5f))
                     }
                 }
             }
@@ -1515,9 +1542,9 @@ private fun SeekBar(
     Box(
         Modifier
             .fillMaxWidth()
-            .height(if (focused || dragging) 14.dp else 8.dp)
+            .height(if (focused || dragging) 10.dp else 5.dp)
             .clip(RoundedCornerShape(7.dp))
-            .background(Color.White.copy(alpha = if (focused || dragging) 0.35f else 0.22f))
+            .background(Color.White.copy(alpha = if (focused || dragging) 0.32f else 0.20f))
             .onGloballyPositioned { coords ->
                 widthPx = coords.size.width.toFloat()
             }
@@ -1567,7 +1594,7 @@ private fun SeekBar(
         )
         // Thumb indicator when dragging
         if (dragging) {
-            val thumbOffset = with(density) { (dragProgress.value * widthPx - 9.dp.toPx()) }
+            val thumbOffset = with(density) { (dragProgress.value * widthPx - 7.dp.toPx()) }
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -1576,7 +1603,7 @@ private fun SeekBar(
             ) {
                 Box(
                     Modifier
-                        .size(18.dp)
+                        .size(14.dp)
                         .clip(RoundedCornerShape(50))
                         .background(Accent)
                 )
@@ -1586,8 +1613,8 @@ private fun SeekBar(
 }
 
 /**
- * Modern Digi X brand loading indicator:
- * - Liquid vertical color fill: authentic 3D red "X" logo vector filling from bottom to top as percent progress.
+ * Digi X brand loading indicator:
+ * - Liquid vertical fill: the DX mark fills from bottom to top as percent progress.
  * - Clean percentage progress only (no technical clutter, peers, or speed info).
  */
 @Composable
@@ -1615,7 +1642,7 @@ private fun DigiXProgressLogo(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            // 2. Liquid vertical color fill: clips the full-color 3D red X vector from bottom to top
+            // 2. Liquid vertical fill: clips the mark from bottom to top
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1633,7 +1660,7 @@ private fun DigiXProgressLogo(
                 Icon(
                     painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = null,
-                    tint = Color.Unspecified, // Authentic multi-tone 3D brand red
+                    tint = Color.Unspecified, // Keeps the DX mark's own tones
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -1654,22 +1681,24 @@ private fun DigiXProgressLogo(
 
 @Composable
 private fun ControlChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    // Accent-filled surfaces draw black glyphs when the accent is light.
+    val m = uiMetrics()
     val bg = if (selected) {
-        Color(0xFFE50914)
+        Accent
     } else {
         Color(0x44FFFFFF)
     }
     Box(
         Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(m.d(18.dp)))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = m.d(11.dp), vertical = m.d(5.dp)),
     ) {
         Text(
             label,
-            color = if (selected) Color.Black else Color.White,
-            fontSize = 12.sp,
+            color = if (selected) OnAccent else Color.White,
+            fontSize = m.f(11f),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1692,48 +1721,51 @@ private fun OptionsPanel(
         }
     }
 
+    val m = uiMetrics()
     Column(
         modifier
-            .width(380.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xF514141C))
-            .padding(vertical = 18.dp),
+            // A fixed 380dp panel hangs off the edge of a phone in portrait.
+            .widthIn(max = m.d(380.dp))
+            .fillMaxWidth(0.92f)
+            .clip(RoundedCornerShape(m.d(18.dp)))
+            .background(Color(0xF5141414))
+            .padding(vertical = m.d(16.dp)),
     ) {
         Text(
             title,
             color = Color.White,
-            fontSize = 16.sp,
+            fontSize = m.f(15f),
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = m.d(18.dp), vertical = m.d(6.dp)),
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(m.d(5.dp)))
         if (items.isEmpty()) {
             Text(
                 "Nothing available for this source",
                 color = Muted,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                fontSize = m.f(12f),
+                modifier = Modifier.padding(horizontal = m.d(18.dp), vertical = m.d(9.dp)),
             )
         }
         LazyColumn(
             state = listState,
-            modifier = Modifier.heightIn(max = 480.dp),
+            modifier = Modifier.heightIn(max = m.d(420.dp)),
         ) {
             itemsIndexed(items) { index, item ->
                 val selected = index == selectedIndex
                 val rowModifier = if (selected) {
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 3.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Brush.horizontalGradient(listOf(Color(0x66E50914), Color(0x33E50914))))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = m.d(11.dp), vertical = m.d(3.dp))
+                        .clip(RoundedCornerShape(m.d(11.dp)))
+                        .background(Brush.horizontalGradient(listOf(Color(0x2EFFFFFF), Color(0x14FFFFFF))))
+                        .padding(horizontal = m.d(13.dp), vertical = m.d(9.dp))
                 } else {
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 3.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(horizontal = m.d(11.dp), vertical = m.d(3.dp))
+                        .clip(RoundedCornerShape(m.d(11.dp)))
+                        .padding(horizontal = m.d(13.dp), vertical = m.d(9.dp))
                 }
 
                 Row(
@@ -1744,17 +1776,17 @@ private fun OptionsPanel(
                         Text(
                             item.label,
                             color = if (selected) Color.White else Color(0xFFDDDDDD),
-                            fontSize = 14.sp,
+                            fontSize = m.f(13f),
                             fontWeight = if (selected || item.selected) FontWeight.Bold else FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         item.detail?.let {
-                            Text(it, color = if (selected) Color(0xFFCCCCCC) else Muted, fontSize = 11.sp, maxLines = 1)
+                            Text(it, color = if (selected) Color(0xFFCCCCCC) else Muted, fontSize = m.f(10.5f), maxLines = 1)
                         }
                     }
                     if (item.selected || selected) {
-                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = BrandAccent, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = BrandAccent, modifier = Modifier.size(m.d(13.dp)))
                     }
                 }
             }
@@ -1810,7 +1842,7 @@ private fun TransportButton(
 ) {
     val m = uiMetrics()
     var focused by remember { mutableStateOf(false) }
-    val diameter = m.d(if (primary) 44.dp else 36.dp)
+    val diameter = m.d(if (primary) 37.dp else 30.dp)
     val lit = focused || selected
     val scale by animateFloatAsState(
         targetValue = if (lit) 1.08f else 1f,
@@ -1843,7 +1875,7 @@ private fun TransportButton(
             imageVector = icon,
             contentDescription = label,
             tint = Color.White,
-            modifier = Modifier.size(m.d(if (primary) 23.dp else 19.dp)),
+            modifier = Modifier.size(m.d(if (primary) 19.dp else 16.dp)),
         )
     }
 }
@@ -1894,21 +1926,21 @@ private fun DeckPill(
                 RoundedCornerShape(50),
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = m.d(11.dp), vertical = m.d(7.dp)),
+            .padding(horizontal = m.d(8.dp), vertical = m.d(4.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = fg.copy(alpha = 0.75f),
-            modifier = Modifier.size(m.d(15.dp)),
+            modifier = Modifier.size(m.d(13.dp)),
         )
         if (!value.isNullOrBlank()) {
-            Spacer(Modifier.width(m.d(6.dp)))
+            Spacer(Modifier.width(m.d(4.dp)))
             Text(
                 text = value,
                 color = fg,
-                fontSize = m.f(11f),
+                fontSize = m.f(10f),
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

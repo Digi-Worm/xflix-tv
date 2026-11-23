@@ -4,15 +4,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Deep indigo field -->
+    <!-- Warm black field -->
     <path
         android:pathData="M0,0h108v108h-108z"
-        android:fillColor="#0B0B18" />
-    <!-- Soft violet aura behind the mark -->
+        android:fillColor="#0A0A0A" />
+    <!-- Single neutral disc so the mark reads as deliberate on transparent launchers -->
     <path
-        android:pathData="M54,54m-40,0a40,40 0 1,0 80,0a40,40 0 1,0 -80,0"
-        android:fillColor="#1A1030" />
-    <path
-        android:pathData="M54,54m-28,0a28,28 0 1,0 56,0a28,28 0 1,0 -56,0"
-        android:fillColor="#241442" />
+        android:pathData="M54,54m-34,0a34,34 0 1,0 68,0a34,34 0 1,0 -68,0"
+        android:fillColor="#1A1A1A" />
 </vector>

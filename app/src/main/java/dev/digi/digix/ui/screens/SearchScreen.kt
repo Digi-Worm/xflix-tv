@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -84,11 +85,12 @@ fun SearchScreen(
         }
     }
 
+    val m = uiMetrics()
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Bg)
-            .padding(top = 28.dp, bottom = 16.dp),
+            .padding(top = m.d(24.dp), bottom = m.d(14.dp)),
     ) {
         // 1. Search input bar
         var isInputFocused by remember { mutableStateOf(false) }
@@ -105,23 +107,25 @@ fun SearchScreen(
 
         Row(
             modifier = Modifier
-                .padding(horizontal = TvDimens.contentStart)
-                .fillMaxWidth(0.92f)
-                .height(52.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .padding(horizontal = m.d(TvDimens.contentStart))
+                // Was fillMaxWidth(0.92f), which on top of the horizontal padding
+                // left the bar oddly short on a phone.
+                .fillMaxWidth()
+                .height(m.d(48.dp))
+                .clip(RoundedCornerShape(m.d(8.dp)))
                 .background(inputBgColor)
-                .border(if (isInputFocused) 2.dp else 1.dp, inputBorderColor, RoundedCornerShape(8.dp))
+                .border(if (isInputFocused) m.d(2.dp) else m.d(1.dp), inputBorderColor, RoundedCornerShape(m.d(8.dp)))
                 .onFocusChanged { isInputFocused = it.hasFocus }
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = m.d(14.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Search",
                 tint = if (isInputFocused) BrandAccent else Color(0xFF888888),
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(m.d(21.dp)),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(m.d(10.dp)))
 
             BasicTextField(
                 value = textInput,
@@ -135,7 +139,7 @@ fun SearchScreen(
                     .focusRequester(inputFocusRequester),
                 textStyle = TextStyle(
                     color = Color.White,
-                    fontSize = 16.sp,
+                    fontSize = m.f(15f),
                     fontWeight = FontWeight.Medium,
                 ),
                 cursorBrush = SolidColor(BrandAccent),
@@ -150,9 +154,11 @@ fun SearchScreen(
                 decorationBox = { innerTextField ->
                     if (textInput.isBlank()) {
                         Text(
-                            "Search movies, series, anime, languages, actors…",
+                            "Search movies, series, anime…",
                             color = Color(0xFF707070),
-                            fontSize = 15.sp,
+                            fontSize = m.f(13f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     innerTextField()
@@ -166,24 +172,24 @@ fun SearchScreen(
                         selectedGenre = "Trending"
                         vm.search("Trending")
                     },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(m.d(30.dp)),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
                         contentDescription = "Clear",
                         tint = Color(0xFFAAAAAA),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(m.d(18.dp)),
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(m.d(14.dp)))
 
         // 2. Quick Genre & Topic Pills Row
         LazyRow(
-            contentPadding = PaddingValues(horizontal = TvDimens.contentStart),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = m.d(TvDimens.contentStart)),
+            horizontalArrangement = Arrangement.spacedBy(m.d(9.dp)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             items(GENRE_PILLS) { genre ->
@@ -206,8 +212,10 @@ fun SearchScreen(
                 )
                 val pillText by animateColorAsState(
                     targetValue = when {
-                        isPillFocused -> Color.Black
-                        isSelected -> Color.White
+                        // Selected fills with the accent, which is white, so the
+                        // label has to be black or it disappears.
+                        isPillFocused -> OnAccent
+                        isSelected -> OnAccent
                         else -> Color(0xFFCCCCCC)
                     },
                     animationSpec = tween(150),
@@ -217,7 +225,7 @@ fun SearchScreen(
                 Box(
                     modifier = Modifier
                         .scale(pillScale)
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(m.d(20.dp)))
                         .background(pillBg)
                         .clickable {
                             selectedGenre = genre
@@ -225,25 +233,25 @@ fun SearchScreen(
                             vm.search(genre)
                         }
                         .onFocusChanged { isPillFocused = it.hasFocus }
-                        .padding(horizontal = 16.dp, vertical = 7.dp),
+                        .padding(horizontal = m.d(15.dp), vertical = m.d(7.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = genre,
                         color = pillText,
-                        fontSize = 13.sp,
+                        fontSize = m.f(12.5f),
                         fontWeight = if (isSelected || isPillFocused) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(m.d(18.dp)))
 
         // 3. Status or Results Header
         Row(
             modifier = Modifier
-                .padding(horizontal = TvDimens.contentStart)
+                .padding(horizontal = m.d(TvDimens.contentStart))
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -256,32 +264,35 @@ fun SearchScreen(
             Text(
                 text = titleText,
                 color = OnBg,
-                fontSize = 18.sp,
+                fontSize = m.f(16f),
                 fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
             )
             if (searchLoading) {
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(m.d(10.dp)))
                 CircularProgressIndicator(
                     color = BrandAccent,
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(m.d(14.dp)),
+                    strokeWidth = m.d(2.dp),
                 )
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(m.d(12.dp)))
 
-        // 4. Posters grid (5 columns)
+        // 4. Posters grid
         if (searchResults.isNotEmpty()) {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 138.dp),
+                columns = GridCells.Adaptive(minSize = m.d(TvDimens.posterWidth)),
                 contentPadding = PaddingValues(
-                    start = TvDimens.contentStart,
-                    end = 24.dp,
-                    bottom = 48.dp,
+                    start = m.d(TvDimens.contentStart),
+                    end = m.d(TvDimens.contentStart),
+                    bottom = m.d(44.dp),
                 ),
-                horizontalArrangement = Arrangement.spacedBy(TvDimens.rowGap),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(m.d(TvDimens.rowGap)),
+                verticalArrangement = Arrangement.spacedBy(m.d(14.dp)),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(searchResults, key = { it.id }) { meta ->
@@ -297,13 +308,13 @@ fun SearchScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = TvDimens.contentStart, vertical = 40.dp),
+                    .padding(horizontal = m.d(TvDimens.contentStart), vertical = m.d(36.dp)),
                 contentAlignment = Alignment.TopStart,
             ) {
                 Text(
                     text = "Try searching for movie names, series, anime, actors, or select a genre above.",
                     color = Color(0xFF888888),
-                    fontSize = 14.sp,
+                    fontSize = m.f(13f),
                 )
             }
         }

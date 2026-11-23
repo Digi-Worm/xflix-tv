@@ -188,6 +188,7 @@ fun Top10PosterCard(
     onFocus: () -> Unit = {},
 ) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     val scale = animateFloatAsState(
         targetValue = if (focused) 1.06f else 1f,
         animationSpec = tween(220, easing = FastOutSlowInEasing),
@@ -218,19 +219,19 @@ fun Top10PosterCard(
     ) {
         Text(
             text = "$rank",
-            fontSize = 92.sp,
+            fontSize = m.f(72f),
             fontWeight = FontWeight.Black,
             color = Color.White.copy(alpha = numAlpha * 0.22f),
             modifier = Modifier
-                .offset(x = 10.dp, y = 4.dp)
+                .offset(x = m.d(8.dp), y = m.d(4.dp))
                 .zIndex(2f),
         )
 
         Box(
             modifier = Modifier
-                .width(TvDimens.posterWidth - 10.dp)
-                .height(TvDimens.posterHeight)
-                .clip(RoundedCornerShape(TvDimens.corner))
+                .width(m.d(TvDimens.posterWidth - 10.dp))
+                .height(m.d(TvDimens.posterHeight))
+                .clip(RoundedCornerShape(m.d(TvDimens.corner)))
                 .background(SurfaceHigh),
         ) {
             if (!meta.poster.isNullOrBlank()) {
@@ -244,16 +245,16 @@ fun Top10PosterCard(
                 Text(
                     meta.name,
                     color = OnBg,
-                    fontSize = 12.sp,
+                    fontSize = m.f(11f),
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.align(Alignment.Center).padding(8.dp),
+                    modifier = Modifier.align(Alignment.Center).padding(m.d(8.dp)),
                 )
             }
             if (focused) {
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .border(2.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(TvDimens.corner))
+                        .border(m.d(2.dp), Color.White.copy(alpha = 0.8f), RoundedCornerShape(m.d(TvDimens.corner)))
                 )
             }
         }
@@ -275,6 +276,7 @@ fun WideCard(
     progress: Float = 0.65f,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     val scale = animateFloatAsState(
         targetValue = if (focused) 1.05f else 1f,
         animationSpec = tween(220, easing = FastOutSlowInEasing),
@@ -288,8 +290,8 @@ fun WideCard(
 
     Box(
         modifier = modifier
-            .width(288.dp)
-            .height(162.dp)
+            .width(m.d(288.dp))
+            .height(m.d(162.dp))
             .zIndex(if (focused) 10f else 1f)
             .focusScaleLayer(scale)
             .graphicsLayer { shadowElevation = elevation.value }
@@ -321,22 +323,22 @@ fun WideCard(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 14.dp, bottom = 16.dp, end = 14.dp),
+                .padding(start = m.d(13.dp), bottom = m.d(15.dp), end = m.d(13.dp)),
         ) {
             Text(
                 title,
                 color = Color.White,
-                fontSize = 14.sp,
+                fontSize = m.f(13f),
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             subtitle?.let {
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(m.d(2.dp)))
                 Text(
                     it,
                     color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 11.sp,
+                    fontSize = m.f(10f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -346,7 +348,7 @@ fun WideCard(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .border(2.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(TvDimens.corner))
+                    .border(m.d(2.dp), Color.White.copy(alpha = 0.8f), RoundedCornerShape(m.d(TvDimens.corner)))
             )
         }
         // Hairline progress, Apple-style: thin, white, quiet.
@@ -373,7 +375,7 @@ fun WideCard(
  * Modern Glassy Left Drawer Menu Item:
  * - Frosted glass pill container with smooth scale animation.
  * - Unselected: Translucent glass pill with crisp, high-contrast white text (easily visible on TV).
- * - Selected: Rich glossy crimson red glass container with brand accent bar.
+ * - Selected: soft white glass container with a brand accent bar.
  * - Focused: Pure white frosted glass capsule with crisp dark typography.
  * - Absolutely no bold borders.
  */
@@ -410,7 +412,7 @@ fun BrandRailItem(
             RoundedCornerShape(24.dp)
         )
         selected -> Modifier.background(
-            Brush.horizontalGradient(listOf(Color(0x66E50914), Color(0x33E50914))),
+            Brush.horizontalGradient(listOf(Color(0x2EFFFFFF), Color(0x14FFFFFF))),
             RoundedCornerShape(24.dp)
         )
         else -> Modifier.background(
@@ -435,7 +437,7 @@ fun BrandRailItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = if (isExpanded) Arrangement.Start else Arrangement.Center,
         ) {
-            // Selected glowing red indicator pill
+            // Selected indicator pill
             if (selected && !focused) {
                 Box(
                     Modifier
@@ -599,7 +601,7 @@ fun BrandHeroBillboard(
                 ) {
                     Text(
                         "TOP 10",
-                        color = Color.White,
+                        color = OnAccent,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
                     )

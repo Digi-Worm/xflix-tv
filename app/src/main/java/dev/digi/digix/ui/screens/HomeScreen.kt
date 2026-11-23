@@ -185,18 +185,19 @@ private fun AppleShelf(
     title: String,
     content: LazyListScope.() -> Unit,
 ) {
-    Column(Modifier.padding(top = 20.dp)) {
+    val m = uiMetrics()
+    Column(Modifier.padding(top = m.d(20.dp))) {
         Text(
             text = title.uppercase(),
             color = OnBg.copy(alpha = 0.62f),
-            fontSize = 11.sp,
+            fontSize = m.f(11f),
             fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.5.sp,
-            modifier = Modifier.padding(start = TvDimens.contentStart, bottom = 10.dp),
+            letterSpacing = m.f(1.4f),
+            modifier = Modifier.padding(start = m.d(TvDimens.contentStart), bottom = m.d(10.dp)),
         )
         LazyRow(
-            contentPadding = PaddingValues(horizontal = TvDimens.contentStart),
-            horizontalArrangement = Arrangement.spacedBy(TvDimens.rowGap),
+            contentPadding = PaddingValues(horizontal = m.d(TvDimens.contentStart)),
+            horizontalArrangement = Arrangement.spacedBy(m.d(TvDimens.rowGap)),
             content = content,
         )
     }
@@ -206,6 +207,7 @@ private fun AppleShelf(
 @Composable
 private fun GlassSearchRow(onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.01f else 1f,
         animationSpec = tween(200, easing = FastOutSlowInEasing),
@@ -213,36 +215,38 @@ private fun GlassSearchRow(onClick: () -> Unit) {
     )
     Row(
         modifier = Modifier
-            .padding(start = TvDimens.contentStart, end = TvDimens.contentStart, top = 20.dp)
-            .fillMaxWidth(0.5f)
+            .padding(start = m.d(TvDimens.contentStart), end = m.d(TvDimens.contentStart), top = m.d(20.dp))
+            // Half-width reads as a search affordance on a TV; on a phone that is
+            // ~180dp, too narrow for the placeholder, so it goes full width.
+            .fillMaxWidth(if (m.isPortrait) 1f else 0.5f)
             .zIndex(if (focused) 8f else 1f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(m.d(14.dp)))
             .background(Color.White.copy(alpha = if (focused) 0.16f else 0.08f))
             .border(
-                width = 1.dp,
+                width = m.d(1.dp),
                 color = if (focused) Color.White.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(m.d(14.dp)),
             )
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 13.dp),
+            .padding(horizontal = m.d(18.dp), vertical = m.d(13.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(m.d(18.dp)),
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(m.d(12.dp)))
         Text(
             "Search movies, shows, people",
             color = Color.White.copy(alpha = 0.55f),
-            fontSize = 13.sp,
+            fontSize = m.f(13f),
         )
     }
 }
@@ -260,6 +264,7 @@ private fun AppleHero(
     onPlay: () -> Unit,
     onMoreInfo: () -> Unit,
 ) {
+    val m = uiMetrics()
     Box(
         Modifier
             .fillMaxWidth()
@@ -301,8 +306,10 @@ private fun AppleHero(
         Column(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 36.dp, bottom = (30 * scale).dp)
-                .fillMaxWidth(0.58f),
+                .padding(start = m.d(TvDimens.contentStart), bottom = (30 * scale).dp)
+                // A 58% column is right on a 16:9 TV panel but leaves a phone
+                // title nowhere to go, so portrait takes almost the full width.
+                .fillMaxWidth(if (m.isPortrait) 0.94f else 0.58f),
         ) {
             Text(
                 text = if (meta.videos.isNullOrEmpty()) "FILM" else "SERIES",
@@ -315,9 +322,9 @@ private fun AppleHero(
             Text(
                 text = meta.name,
                 color = Color.White,
-                fontSize = (40 * scale).sp,
+                fontSize = (if (m.isPortrait) 26 * scale else 40 * scale).sp,
                 fontWeight = FontWeight.Bold,
-                lineHeight = (46 * scale).sp,
+                lineHeight = (if (m.isPortrait) 31 * scale else 46 * scale).sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )

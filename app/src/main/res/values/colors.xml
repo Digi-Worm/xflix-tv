@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#0B0B18</color>
-    <color name="surface">#15152A</color>
-    <color name="surface_high">#1F1F3A</color>
-    <color name="accent">#7C3AED</color>
-    <color name="accent_dark">#5B21B6</color>
+    <color name="bg">#0A0A0A</color>
+    <color name="surface">#161616</color>
+    <color name="surface_high">#212121</color>
+    <color name="accent">#FFFFFF</color>
+    <color name="accent_dark">#B0B0B0</color>
     <color name="on_bg">#FFFFFF</color>
-    <color name="muted">#A9A9C4</color>
-    <color name="brand_green">#4ADE80</color>
-    <color name="brand_cyan">#22D3EE</color>
+    <color name="on_accent">#0A0A0A</color>
+    <color name="muted">#A0A0A0</color>
+    <color name="brand_green">#E8E8E8</color>
 </resources>

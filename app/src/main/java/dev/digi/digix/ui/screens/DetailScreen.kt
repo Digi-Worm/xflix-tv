@@ -9,6 +9,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -280,12 +283,12 @@ private fun AudioFilterChip(
     )
     val bg = when {
         isFocused -> Brush.horizontalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFEEEEEE)))
-        isSelected -> Brush.horizontalGradient(listOf(Color(0xFFE50914), Color(0xFFB81D24)))
+        isSelected -> Brush.horizontalGradient(listOf(Color(0xFFDCDCDC), Color(0xFFC4C4C4)))
         else -> Brush.horizontalGradient(listOf(Color(0x33FFFFFF), Color(0x1AFFFFFF)))
     }
     val textColor = when {
         isFocused -> Color.Black
-        isSelected -> Color.White
+        isSelected -> Color.Black
         else -> Color.White
     }
 
@@ -319,6 +322,7 @@ private fun AudioFilterChip(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Backdrop(
     meta: dev.digi.digix.data.Meta,
@@ -329,7 +333,19 @@ private fun Backdrop(
     onPlay: () -> Unit,
     onToggleLibrary: (dev.digi.digix.data.Meta) -> Unit = {},
 ) {
-    Box(Modifier.fillMaxWidth().height(420.dp)) {
+    // The backdrop was a fixed 420dp, which is more than half a phone's portrait
+    // viewport and pushed the actions off the first screen. It now takes a share
+    // of the available height instead, and drops the poster on narrow screens
+    // where the poster column would squeeze the title into a sliver.
+    val m = uiMetrics()
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val backdropHeight = if (m.isPortrait) {
+            (maxHeight * 0.5f).coerceIn(260.dp, 420.dp)
+        } else {
+            (maxHeight * 0.66f).coerceIn(300.dp, 460.dp)
+        }
+        val showPoster = maxWidth >= m.d(520.dp)
+    Box(Modifier.fillMaxWidth().height(backdropHeight)) {
         AsyncImage(
             model = meta.background ?: meta.poster,
             contentDescription = meta.name,
@@ -355,53 +371,55 @@ private fun Backdrop(
         Row(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(horizontal = TvDimens.contentStart, vertical = 26.dp),
+                .padding(horizontal = m.d(TvDimens.contentStart), vertical = m.d(20.dp)),
             verticalAlignment = Alignment.Bottom,
         ) {
-            if (!meta.poster.isNullOrBlank()) {
+            if (showPoster && !meta.poster.isNullOrBlank()) {
                 AsyncImage(
                     model = meta.poster,
                     contentDescription = meta.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .width(136.dp)
-                        .height(204.dp)
-                        .clip(RoundedCornerShape(TvDimens.corner)),
+                        .width(m.d(110.dp))
+                        .height(m.d(165.dp))
+                        .clip(RoundedCornerShape(m.d(TvDimens.corner))),
                 )
-                Spacer(Modifier.width(26.dp))
+                Spacer(Modifier.width(m.d(20.dp)))
             }
             Column(Modifier.weight(1f)) {
                 // Digi X brand tag: "DX" monogram followed by FILM / SERIES
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(m.d(6.dp)),
                 ) {
                     Text(
                         "DX",
                         color = BrandAccent,
-                        fontSize = 20.sp,
+                        fontSize = m.f(18f),
                         fontWeight = FontWeight.Black,
-                        letterSpacing = (-1).sp,
+                        letterSpacing = m.f(-1f),
                     )
                     val categoryTag = if (!meta.videos.isNullOrEmpty()) "SERIES" else "FILM"
                     Text(
                         categoryTag,
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 12.sp,
+                        fontSize = m.f(11f),
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.5.sp,
+                        letterSpacing = m.f(2.2f),
                     )
                 }
 
-                Spacer(Modifier.height(4.dp))
-                Text(meta.name, color = OnBg, fontSize = 38.sp, fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(m.d(4.dp)))
+                Text(meta.name, color = OnBg, fontSize = m.f(30f), fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.height(m.d(7.dp)))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                // Was a plain Row of six chips, which ran off the right edge of a
+                // portrait phone. FlowRow wraps them onto a second line instead.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(m.d(8.dp)),
+                    verticalArrangement = Arrangement.spacedBy(m.d(6.dp)),
                 ) {
-                    Text("98% Match", color = BrandSuccess, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("98% Match", color = BrandSuccess, fontSize = m.f(13f), fontWeight = FontWeight.Bold)
                     meta.releaseInfo?.year?.let { Chip("$it") }
                     meta.runtime?.let { Chip("${it} min") }
                     Chip("Ultra HD 4K")
@@ -410,46 +428,46 @@ private fun Backdrop(
                 }
 
                 meta.description?.let {
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(m.d(9.dp)))
                     Text(
                         it,
                         color = Color(0xFFD0D0D6),
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        maxLines = 3,
+                        fontSize = m.f(12f),
+                        lineHeight = m.f(17f),
+                        maxLines = if (m.isPortrait) 4 else 3,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(0.85f),
+                        modifier = Modifier.fillMaxWidth(if (m.isPortrait) 1f else 0.85f),
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(m.d(14.dp)))
 
                 // Action buttons
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     androidx.tv.material3.Button(
                         onClick = onPlay,
                         modifier = Modifier.focusRequester(playFocus),
-                        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(4.dp)),
+                        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(m.d(6.dp))),
                         colors = androidx.tv.material3.ButtonDefaults.colors(
                             containerColor = Color.White,
                             contentColor = Color.Black,
                             focusedContainerColor = Color.White,
                             focusedContentColor = Color.Black,
                         ),
-                        contentPadding = PaddingValues(horizontal = 26.dp, vertical = 12.dp),
+                        contentPadding = PaddingValues(horizontal = m.d(22.dp), vertical = m.d(10.dp)),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isAutoPlayPending) {
                                 androidx.compose.material3.CircularProgressIndicator(
                                     color = Color.Black,
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(m.d(18.dp)),
+                                    strokeWidth = m.d(2.dp),
                                 )
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(m.d(7.dp)))
                                 Text(
                                     "Starting…",
                                     color = Color.Black,
-                                    fontSize = 16.sp,
+                                    fontSize = m.f(14f),
                                     fontWeight = FontWeight.Bold,
                                 )
                             } else {
@@ -457,59 +475,61 @@ private fun Backdrop(
                                     imageVector = Icons.Default.PlayArrow,
                                     contentDescription = null,
                                     tint = Color.Black,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(m.d(21.dp)),
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(m.d(5.dp)))
                                 Text(
                                     if (resumeMs > 60_000) "Resume ${shortClock(resumeMs)}" else "Play",
                                     color = Color.Black,
-                                    fontSize = 16.sp,
+                                    fontSize = m.f(14f),
                                     fontWeight = FontWeight.Bold,
                                 )
                             }
                         }
                     }
-                    Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.width(m.d(11.dp)))
                     androidx.tv.material3.Button(
                         onClick = { meta?.let(onToggleLibrary) },
-                        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(4.dp)),
+                        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(m.d(6.dp))),
                         colors = androidx.tv.material3.ButtonDefaults.colors(
                             containerColor = Color(0x66FFFFFF),
                             contentColor = OnBg,
                             focusedContainerColor = Color(0x99FFFFFF),
                             focusedContentColor = Color.White,
                         ),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                        contentPadding = PaddingValues(horizontal = m.d(17.dp), vertical = m.d(10.dp)),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(m.d(18.dp)),
                             )
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(m.d(5.dp)))
                             Text(
                                 "My List",
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = m.f(13f),
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
                     }
                     if (streamsLoading) {
-                        Spacer(Modifier.width(16.dp))
-                        Text("Finding sources…", color = Muted, fontSize = 13.sp)
+                        Spacer(Modifier.width(m.d(13.dp)))
+                        Text("Finding sources…", color = Muted, fontSize = m.f(12f))
                     }
                 }
             }
         }
+    }
     }
 }
 
 @Composable
 private fun Chip(text: String) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     val scale = animateFloatAsState(
         targetValue = if (focused) 1.04f else 1f,
         animationSpec = tween(160, easing = FastOutSlowInEasing),
@@ -521,21 +541,21 @@ private fun Chip(text: String) {
         label = "chipBg",
     )
     val textColor by animateColorAsState(
-        targetValue = if (focused) Color.White else Color(0xFFE6E6EA),
+        targetValue = if (focused) OnAccent else Color(0xFFE6E6EA),
         animationSpec = tween(160, easing = FastOutSlowInEasing),
         label = "chipText",
     )
 
     Box(
         Modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(m.d(4.dp)))
             .background(bgColor)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = m.d(8.dp), vertical = m.d(4.dp))
             .focusScaleLayer(scale)
             .onFocusChanged { focused = it.isFocused }
             .graphicsLayer { shadowElevation = if (focused) 4f else 0f },
     ) {
-        Text(text, color = textColor, fontSize = 11.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium)
+        Text(text, color = textColor, fontSize = m.f(10.5f), fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium)
     }
 }
 
@@ -655,11 +675,12 @@ private fun EpisodeCard(
         label = "episodeNumColor",
     )
     val title = video.name?.takeIf { it.isNotBlank() } ?: video.title ?: "Episode ${video.episode ?: "?"}"
+    val m = uiMetrics()
 
     Column(
         Modifier
-            .width(268.dp)
-            .height(100.dp)
+            .width(m.d(240.dp))
+            .height(m.d(92.dp))
             .graphicsLayer {
                 scaleX = scale.value
                 scaleY = scale.value

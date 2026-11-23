@@ -32,28 +32,36 @@ fun AddonsScreen(
 ) {
     var url by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
+    val m = uiMetrics()
 
     Column(modifier.fillMaxSize().background(Bg)) {
         Text(
             "Addons",
             color = OnBg,
-            fontSize = 28.sp,
+            fontSize = m.f(24f),
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = TvDimens.contentStart, top = 28.dp, bottom = 16.dp),
+            modifier = Modifier.padding(
+                start = m.d(TvDimens.contentStart),
+                top = m.d(24.dp),
+                bottom = m.d(14.dp),
+            ),
         )
 
+        // The field used to be a fixed 560dp wide, which is wider than a whole
+        // phone in portrait. It takes the available width now and the button
+        // drops beneath it when there is not enough room beside it.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = TvDimens.contentStart),
+            Modifier.fillMaxWidth().padding(horizontal = m.d(TvDimens.contentStart)),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(m.d(12.dp)),
         ) {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
                 label = { Text("Addon manifest URL") },
                 singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
-                modifier = Modifier.width(560.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = m.f(13f)),
+                modifier = Modifier.weight(1f),
             )
             Button(
                 onClick = {
@@ -68,29 +76,29 @@ fun AddonsScreen(
                 shape = ButtonDefaults.shape(RoundedCornerShape(50)),
                 colors = ButtonDefaults.colors(
                     containerColor = Accent,
-                    contentColor = Color.Black,
-                    focusedContainerColor = Color.White,
-                    focusedContentColor = Color.Black,
+                    contentColor = OnAccent,
+                    focusedContainerColor = Accent,
+                    focusedContentColor = OnAccent,
                 ),
             ) {
-                Text("Install", fontWeight = FontWeight.SemiBold)
+                Text("Install", fontWeight = FontWeight.SemiBold, fontSize = m.f(13f))
             }
         }
 
         status?.let {
             Text(
                 it,
-                color = if (it.startsWith("Not")) Color(0xFFFF7A7A) else Accent,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(start = TvDimens.contentStart, top = 10.dp),
+                color = if (it.startsWith("Not")) Color(0xFFE88A8A) else OnBg,
+                fontSize = m.f(12f),
+                modifier = Modifier.padding(start = m.d(TvDimens.contentStart), top = m.d(10.dp)),
             )
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(m.d(16.dp)))
 
         LazyColumn(
-            contentPadding = PaddingValues(horizontal = TvDimens.contentStart),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = m.d(TvDimens.contentStart)),
+            verticalArrangement = Arrangement.spacedBy(m.d(9.dp)),
             modifier = Modifier.fillMaxSize(),
         ) {
             items(installed) { addon ->
@@ -101,8 +109,8 @@ fun AddonsScreen(
                     Text(
                         "No addons installed. Paste a manifest URL above.",
                         color = Muted,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(16.dp),
+                        fontSize = m.f(13f),
+                        modifier = Modifier.padding(m.d(14.dp)),
                     )
                 }
             }
@@ -113,46 +121,47 @@ fun AddonsScreen(
 @Composable
 private fun AddonRow(addon: String, onRemove: (String) -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     Card(
         onClick = { },
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { focused = it.isFocused }
             .then(if (focused) Modifier else Modifier),
-        shape = CardDefaults.shape(RoundedCornerShape(TvDimens.corner)),
+        shape = CardDefaults.shape(RoundedCornerShape(m.d(TvDimens.corner))),
         colors = CardDefaults.colors(containerColor = if (focused) SurfaceFocused else Surface),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().padding(horizontal = m.d(16.dp), vertical = m.d(12.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 Modifier
-                    .size(9.dp)
+                    .size(m.d(8.dp))
                     .background(if (focused) Accent else MutedDim, RoundedCornerShape(50))
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(m.d(12.dp)))
             Text(
                 addon,
                 color = OnBg,
-                fontSize = 13.sp,
+                fontSize = m.f(12f),
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(m.d(12.dp)))
             Button(
                 onClick = { onRemove(addon) },
                 shape = ButtonDefaults.shape(RoundedCornerShape(50)),
                 colors = ButtonDefaults.colors(
                     containerColor = SurfaceHigh,
                     contentColor = OnBg,
-                    focusedContainerColor = Color(0xFFFF7A7A),
-                    focusedContentColor = Color.Black,
+                    focusedContainerColor = Color(0xFFE8E8E8),
+                    focusedContentColor = OnAccent,
                 ),
             ) {
-                Text("Remove", fontSize = 12.sp)
+                Text("Remove", fontSize = m.f(11f))
             }
         }
     }

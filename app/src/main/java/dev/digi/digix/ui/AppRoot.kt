@@ -15,8 +15,13 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.Icons.Default
 import androidx.compose.material.icons.filled.Apps
@@ -235,9 +240,17 @@ private fun AppleTabBar(
 
     Box(modifier = modifier.fillMaxWidth()) {
         val m = uiMetrics()
+        val scrollState = rememberScrollState()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // Five tabs at TV padding total ~370dp, which is wider than a
+                // 360dp phone. The row scrolls there instead of clipping the
+                // last tab off the edge.
+                .then(
+                    if (m.isCompact) Modifier.horizontalScroll(scrollState)
+                    else Modifier
+                )
                 .padding(start = m.d(TvDimens.contentStart - 14.dp), end = m.d(TvDimens.contentStart), bottom = m.d(12.dp)),
             horizontalArrangement = Arrangement.spacedBy(m.d(2.dp)),
             verticalAlignment = Alignment.CenterVertically,
@@ -254,12 +267,19 @@ private fun AppleTabBar(
             }
         }
 
-        // Shared selection indicator — one 2dp capsule for the whole row.
+        // Shared selection indicator — one 2dp capsule for the whole row. It is
+        // drawn outside the scroll container, so the scroll offset has to be
+        // subtracted or it would sit under the wrong tab once the row moves.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(bottom = 3.dp)
-                .offset { IntOffset(indicatorX.value.roundToInt(), 0) }
+                .offset {
+                    IntOffset(
+                        (indicatorX.value - if (m.isCompact) scrollState.value.toFloat() else 0f).roundToInt(),
+                        0,
+                    )
+                }
                 .width(with(density) { indicatorW.value.toDp() })
                 .height(2.dp)
                 .clip(RoundedCornerShape(50))
@@ -357,7 +377,15 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
 
     Box(Modifier.fillMaxSize().background(Bg)) {
       ResponsiveScope {
-        Column(Modifier.fillMaxSize()) {
+        // Phones and tablets have a notch and a gesture bar; the TV has neither.
+        // Applying the display cutout as padding keeps the chrome and the bottom
+        // tab row clear of both without changing anything on a TV panel.
+        val safe = WindowInsets.displayCutout
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(safe)
+        ) {
             // Space owned by the floating chrome above us.
             Spacer(Modifier.height(headerHeight))
 
@@ -450,6 +478,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
         Box(
             Modifier
                 .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.displayCutout)
                 .height(headerHeight + 22.dp)
                 .background(HeaderScrim)
                 .zIndex(65f)
@@ -461,7 +490,9 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
             onHeightChanged = { measured ->
                 if (measured != headerHeight) headerHeight = measured
             },
-            modifier = Modifier.zIndex(70f),
+            modifier = Modifier
+                .zIndex(70f)
+                .windowInsetsPadding(WindowInsets.displayCutout),
         )
       }
     }

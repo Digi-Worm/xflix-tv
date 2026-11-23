@@ -7,26 +7,35 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 // --- Digi X TV palette -----------------------------------------------------
-// Violet primary with cyan secondary. Violet is deliberate rather than cyan
-// for the primary: it is used as a filled background behind white text in
-// several places (TOP 10 badge, install button), and white-on-cyan fails
-// contrast. Cyan is kept as the secondary/glow tone where it sits on dark.
-val BrandAccent = Color(0xFF7C3AED)
-val BrandAccentDark = Color(0xFF5B21B6)
-val BrandAccentGlow = Color(0xFFA78BFA)
-val BrandSuccess = Color(0xFF4ADE80)
-val BrandCyan = Color(0xFF22D3EE)
+// Strictly neutral. There is no colour accent anywhere in the chrome: the
+// artwork is the only colour on screen, which is the whole point of a cinema
+// interface. "Accent" is therefore white, and every surface is a warm neutral
+// grey rather than a tinted one - the earlier indigo tint read as cold and
+// gave the whole app a gamer-RGB cast.
+//
+// Because the accent is white, anything that fills with it must draw BLACK
+// text on top. That is what OnAccent is for; do not use OnBg there.
+val BrandAccent = Color(0xFFFFFFFF)
+val BrandAccentDark = Color(0xFFB0B0B0)
+val BrandAccentGlow = Color(0xFFFFFFFF)
 
-val Bg = Color(0xFF0B0B18)
-val Surface = Color(0xFF15152A)
-val SurfaceHigh = Color(0xFF1F1F3A)
-val SurfaceFocused = Color(0xFF2A2A4D)
+/** Formerly a green rating tint. Neutralised - see the note above. */
+val BrandSuccess = Color(0xFFE8E8E8)
+
+val Bg = Color(0xFF0A0A0A)
+val Surface = Color(0xFF161616)
+val SurfaceHigh = Color(0xFF212121)
+val SurfaceFocused = Color(0xFF2C2C2C)
+
+/** Text/icon colour to use on top of a filled [Accent] surface. */
+val OnAccent = Color(0xFF0A0A0A)
+
 val Accent = BrandAccent
 val AccentDim = BrandAccentDark
-val AccentAlt = BrandCyan
+val AccentAlt = Color(0xFF8A8A8A)
 val OnBg = Color(0xFFFFFFFF)
-val Muted = Color(0xFFA9A9C4)
-val MutedDim = Color(0xFF74748F)
+val Muted = Color(0xFFA0A0A0)
+val MutedDim = Color(0xFF6B6B6B)
 val Selection = Color(0xFFFFFFFF)
 
 /**
@@ -47,9 +56,9 @@ object TvDimens {
 
 private val Scheme = darkColorScheme(
     primary = Accent,
-    onPrimary = Color.White,
-    secondary = AccentAlt,
-    onSecondary = Bg,
+    onPrimary = OnAccent,
+    secondary = Color(0xFF9E9E9E),
+    onSecondary = OnAccent,
     background = Bg,
     onBackground = OnBg,
     surface = Surface,

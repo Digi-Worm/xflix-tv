@@ -5,19 +5,20 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- D — geometric bowl with an elliptical counter knocked out.
-         evenOdd turns the inner path into a hole. -->
+    <!-- D — geometric bowl with an elliptical counter knocked out via evenOdd. -->
     <path
         android:fillType="evenOdd"
-        android:fillColor="#A78BFA"
-        android:pathData="M30,32 L41,32 A22,22 0 0 1 41,76 L30,76 Z M38,42 L41,42 A11,11 0 0 1 41,66 L38,66 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M27,30 L39,30 A24,24 0 0 1 39,78 L27,78 Z M36,41 L39,41 A13,13 0 0 1 39,67 L36,67 Z" />
 
-    <!-- X — two crossed diagonal bars, top-left to bottom-right first. -->
+    <!-- X — two crossed diagonal bars. Rendered in the same white at a
+         slightly lower opacity so the monogram has depth without introducing
+         a second hue. -->
     <path
-        android:fillColor="#22D3EE"
-        android:pathData="M58,32 L64,32 L78,76 L72,76 Z" />
+        android:fillColor="#D8D8D8"
+        android:pathData="M57,30 L64,30 L79,78 L72,78 Z" />
     <path
-        android:fillColor="#22D3EE"
-        android:pathData="M72,32 L78,32 L64,76 L58,76 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,30 L79,30 L64,78 L57,78 Z" />
 
 </vector>

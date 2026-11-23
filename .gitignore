@@ -25,10 +25,17 @@ Thumbs.db
 backups/
 *.apk
 
-# Exception: the single latest tested build that ships with the repo. Keeping one
-# APK here (and nowhere else) means a fresh clone can install the exact tested
-# build without running Gradle, and there is still only ever one copy to update.
-!release/*.apk
+# Packaged release builds live on disk and on the desktop package only. They are
+# ~46 MB binaries, so tracking them would double the repository size every build.
+release/
+
+# Signing material must never enter history.
+*.jks
+*.keystore
+*.p12
+
+# Node tooling, if a JS helper is ever added alongside the Gradle build.
+node_modules/
 
 # Reverse-engineering reference material (official APK, jadx/apktool output) and
 # the decompiler toolchain itself. These are ~1.3 GB of local scratch, far beyond

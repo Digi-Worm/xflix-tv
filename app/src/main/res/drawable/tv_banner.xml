@@ -5,29 +5,24 @@
     android:viewportWidth="320"
     android:viewportHeight="180">
 
-    <!-- Deep indigo field -->
+    <!-- Warm black field -->
     <path
         android:pathData="M0,0h320v180h-320z"
-        android:fillColor="#0B0B18" />
-
-    <!-- Violet aura behind the mark -->
-    <path
-        android:pathData="M60,90m-46,0a46,46 0 1,0 92,0a46,46 0 1,0 -92,0"
-        android:fillColor="#1A1030" />
+        android:fillColor="#0A0A0A" />
 
     <!-- ============ DX monogram (left) ============ -->
     <!-- D bowl with elliptical counter -->
     <path
         android:fillType="evenOdd"
-        android:fillColor="#A78BFA"
-        android:pathData="M22,58 L36,58 A26,26 0 0 1 36,110 L22,110 Z M32,70 L36,70 A14,14 0 0 1 36,98 L32,98 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,56 L34,56 A28,28 0 0 1 34,112 L20,112 Z M30,68 L34,68 A16,16 0 0 1 34,100 L30,100 Z" />
     <!-- X crossed bars -->
     <path
-        android:fillColor="#22D3EE"
-        android:pathData="M56,58 L63,58 L79,110 L72,110 Z" />
+        android:fillColor="#D8D8D8"
+        android:pathData="M56,56 L63,56 L79,112 L72,112 Z" />
     <path
-        android:fillColor="#22D3EE"
-        android:pathData="M72,58 L79,58 L63,110 L56,110 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,56 L79,56 L63,112 L56,112 Z" />
 
     <!-- ============ Wordmark (right) ============ -->
     <!-- "DIGI" in white -->
@@ -46,24 +41,24 @@
         android:fillColor="#FFFFFF"
         android:pathData="M146,62 L152,62 L152,98 L146,98 Z" />
 
-    <!-- "X" in cyan -->
+    <!-- "X" set slightly dimmer than the rest of the wordmark -->
     <path
-        android:fillColor="#22D3EE"
+        android:fillColor="#D8D8D8"
         android:pathData="M161,62 L168,62 L180,98 L173,98 Z" />
     <path
-        android:fillColor="#22D3EE"
+        android:fillColor="#FFFFFF"
         android:pathData="M173,62 L180,62 L168,98 L161,98 Z" />
 
-    <!-- "TV" violet pill badge -->
+    <!-- "TV" white pill badge with black letters -->
     <path
-        android:fillColor="#7C3AED"
+        android:fillColor="#FFFFFF"
         android:pathData="M190,68 L222,68 A5,5 0 0 1 227,73 L227,91 A5,5 0 0 1 222,96 L190,96 A5,5 0 0 1 185,91 L185,73 A5,5 0 0 1 190,68 Z" />
     <!-- T -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#0A0A0A"
         android:pathData="M191,75 L204,75 L204,80 L199.6,80 L199.6,90 L195.4,90 L195.4,80 L191,80 Z" />
     <!-- V -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#0A0A0A"
         android:pathData="M207,75 L211.2,75 L213.6,85.2 L216,75 L220.2,75 L215.6,90 L211.6,90 Z" />
 </vector>
