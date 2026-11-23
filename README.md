@@ -1,4 +1,4 @@
-# Xflix TV
+# Digi X TV
 
 A native Android TV streaming client. Compose for TV UI, Media3/ExoPlayer
 playback, embedded libtorrent for `infoHash` streams, local persistence.
@@ -10,7 +10,7 @@ playback, embedded libtorrent for `infoHash` streams, local persistence.
 
 ## What it does
 
-Xflix TV is a self-contained player for open addon-protocol catalogs. It talks
+Digi X TV is a self-contained player for open addon-protocol catalogs. It talks
 directly to addon HTTP endpoints and renders the results in a leanback UI:
 
 ```
@@ -34,8 +34,8 @@ server. Nothing is proxied through a remote service.
 
 | Layer | File | Responsibility |
 |---|---|---|
-| Entry | `MainActivity.kt` | Deep links (`xflix://detail/...`, `xflix://stream/...`) |
-| App | `XflixTvApp.kt` | Process-wide singletons, storage sweep scheduling |
+| Entry | `MainActivity.kt` | Deep links (`digix://detail/...`, `digix://stream/...`) |
+| App | `DigiXApp.kt` | Process-wide singletons, storage sweep scheduling |
 | Protocol | `data/AddonProtocol.kt` | Manifest/meta/stream models, stream scoring |
 | Transport | `data/AddonClient.kt` | Addon HTTP calls, manifest resolution |
 | Torrents | `data/TorrentEngine.kt` | libtorrent session, local range server |

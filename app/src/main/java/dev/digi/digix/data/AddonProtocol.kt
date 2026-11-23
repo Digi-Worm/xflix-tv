@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.data
+package dev.digi.digix.data
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable

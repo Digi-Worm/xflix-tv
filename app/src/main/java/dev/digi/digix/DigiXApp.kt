@@ -1,4 +1,4 @@
-package dev.digi.xflixtv
+package dev.digi.digix
 
 import android.app.Application
 import android.content.res.Configuration
@@ -7,11 +7,11 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import dev.digi.xflixtv.data.AddonClient
-import dev.digi.xflixtv.data.AddonStore
-import dev.digi.xflixtv.data.LibraryStore
-import dev.digi.xflixtv.data.StorageJanitor
-import dev.digi.xflixtv.data.TorrentEngine
+import dev.digi.digix.data.AddonClient
+import dev.digi.digix.data.AddonStore
+import dev.digi.digix.data.LibraryStore
+import dev.digi.digix.data.StorageJanitor
+import dev.digi.digix.data.TorrentEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class XflixTvApp : Application(), ImageLoaderFactory {
+class DigiXApp : Application(), ImageLoaderFactory {
 
     lateinit var addonClient: AddonClient
         private set
@@ -30,8 +30,8 @@ class XflixTvApp : Application(), ImageLoaderFactory {
     lateinit var libraryStore: LibraryStore
         private set
 
-    /** Stream requested from outside (xflix:// or a launch intent). */
-    var deepLinkStream: dev.digi.xflixtv.data.Stream? = null
+    /** Stream requested from outside (digix:// or a launch intent). */
+    var deepLinkStream: dev.digi.digix.data.Stream? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -45,12 +45,12 @@ class XflixTvApp : Application(), ImageLoaderFactory {
         // settles into a slow periodic pass so a long binge never fills the box.
         appScope.launch {
             delay(4_000)
-            StorageJanitor.sweep(this@XflixTvApp)
+            StorageJanitor.sweep(this@DigiXApp)
         }
         appScope.launch {
             while (isActive) {
                 delay(15L * 60 * 1000)
-                StorageJanitor.sweep(this@XflixTvApp)
+                StorageJanitor.sweep(this@DigiXApp)
             }
         }
 
@@ -109,7 +109,7 @@ class XflixTvApp : Application(), ImageLoaderFactory {
         .build()
 
     companion object {
-        lateinit var instance: XflixTvApp
+        lateinit var instance: DigiXApp
             private set
 
         private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

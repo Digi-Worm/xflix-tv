@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.screens
+package dev.digi.digix.ui.screens
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -40,10 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
-import dev.digi.xflixtv.data.Meta
-import dev.digi.xflixtv.ui.HomeState
-import dev.digi.xflixtv.ui.components.*
-import dev.digi.xflixtv.ui.theme.*
+import dev.digi.digix.data.Meta
+import dev.digi.digix.ui.HomeState
+import dev.digi.digix.ui.components.*
+import dev.digi.digix.ui.theme.*
 
 /**
  * Apple TV–style home.

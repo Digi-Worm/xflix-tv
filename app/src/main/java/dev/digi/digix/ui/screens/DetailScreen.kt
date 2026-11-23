@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.screens
+package dev.digi.digix.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -38,28 +38,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.ui.draw.scale
-import dev.digi.xflixtv.data.availableAudioLanguages
-import dev.digi.xflixtv.data.findBestForAudio
-import dev.digi.xflixtv.data.Stream
-import dev.digi.xflixtv.ui.DetailState
+import dev.digi.digix.data.availableAudioLanguages
+import dev.digi.digix.data.findBestForAudio
+import dev.digi.digix.data.Stream
+import dev.digi.digix.ui.DetailState
 import androidx.compose.ui.platform.LocalContext
-import dev.digi.xflixtv.XflixTvApp
+import dev.digi.digix.DigiXApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
-import dev.digi.xflixtv.ui.components.focusScale
-import dev.digi.xflixtv.ui.components.focusScaleLayer
-import dev.digi.xflixtv.ui.components.*
-import dev.digi.xflixtv.ui.theme.*
+import dev.digi.digix.ui.components.focusScale
+import dev.digi.digix.ui.components.focusScaleLayer
+import dev.digi.digix.ui.components.*
+import dev.digi.digix.ui.theme.*
 
 @Composable
 fun DetailScreen(
     state: DetailState,
     onPlay: (Stream) -> Unit,
-    onEpisodeSelect: (dev.digi.xflixtv.data.Video) -> Unit = {},
+    onEpisodeSelect: (dev.digi.digix.data.Video) -> Unit = {},
     resumeMs: Long = 0L,
-    onToggleLibrary: (dev.digi.xflixtv.data.Meta) -> Unit = {},
+    onToggleLibrary: (dev.digi.digix.data.Meta) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val meta = state.meta
@@ -94,7 +94,7 @@ fun DetailScreen(
         state.streams.findBestForAudio(selectedAudioLanguage) ?: state.streams.firstOrNull()
     }
 
-    val app = XflixTvApp.instance
+    val app = DigiXApp.instance
     val context = LocalContext.current
     // Warm every plausible first choice in parallel so pressing Play only has to
     // wait for the swarm, not for magnets to be queued one after another.
@@ -219,7 +219,7 @@ fun DetailScreen(
             ) {
                 if (state.streamsLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
-                        color = BrandRed,
+                        color = BrandAccent,
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
                     )
@@ -235,12 +235,12 @@ fun DetailScreen(
                         else "BEST SOURCE AUTO-SELECTED"
                     Box(
                         modifier = Modifier
-                            .background(BrandGreen.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .background(BrandSuccess.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         Text(
                             badgeText,
-                            color = BrandGreen,
+                            color = BrandSuccess,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                         )
@@ -321,13 +321,13 @@ private fun AudioFilterChip(
 
 @Composable
 private fun Backdrop(
-    meta: dev.digi.xflixtv.data.Meta,
+    meta: dev.digi.digix.data.Meta,
     playFocus: FocusRequester,
     streamsLoading: Boolean,
     isAutoPlayPending: Boolean = false,
     resumeMs: Long,
     onPlay: () -> Unit,
-    onToggleLibrary: (dev.digi.xflixtv.data.Meta) -> Unit = {},
+    onToggleLibrary: (dev.digi.digix.data.Meta) -> Unit = {},
 ) {
     Box(Modifier.fillMaxWidth().height(420.dp)) {
         AsyncImage(
@@ -371,18 +371,19 @@ private fun Backdrop(
                 Spacer(Modifier.width(26.dp))
             }
             Column(Modifier.weight(1f)) {
-                // Xflix Brand Tag: Red "X" + "FLIX FILM" or "FLIX SERIES" so X never repeats
+                // Digi X brand tag: "DX" monogram followed by FILM / SERIES
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        "X",
-                        color = BrandRed,
-                        fontSize = 24.sp,
+                        "DX",
+                        color = BrandAccent,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
+                        letterSpacing = (-1).sp,
                     )
-                    val categoryTag = if (!meta.videos.isNullOrEmpty()) "FLIX SERIES" else "FLIX FILM"
+                    val categoryTag = if (!meta.videos.isNullOrEmpty()) "SERIES" else "FILM"
                     Text(
                         categoryTag,
                         color = Color.White.copy(alpha = 0.9f),
@@ -400,7 +401,7 @@ private fun Backdrop(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("98% Match", color = BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("98% Match", color = BrandSuccess, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     meta.releaseInfo?.year?.let { Chip("$it") }
                     meta.runtime?.let { Chip("${it} min") }
                     Chip("Ultra HD 4K")
@@ -515,7 +516,7 @@ private fun Chip(text: String) {
         label = "chipScale",
     )
     val bgColor by animateColorAsState(
-        targetValue = if (focused) BrandRed else Color.White.copy(alpha = 0.10f),
+        targetValue = if (focused) BrandAccent else Color.White.copy(alpha = 0.10f),
         animationSpec = tween(160, easing = FastOutSlowInEasing),
         label = "chipBg",
     )
@@ -540,9 +541,9 @@ private fun Chip(text: String) {
 
 @Composable
 private fun EpisodeSection(
-    videos: List<dev.digi.xflixtv.data.Video>,
-    selected: dev.digi.xflixtv.data.Video?,
-    onSelect: (dev.digi.xflixtv.data.Video) -> Unit,
+    videos: List<dev.digi.digix.data.Video>,
+    selected: dev.digi.digix.data.Video?,
+    onSelect: (dev.digi.digix.data.Video) -> Unit,
 ) {
     val seasons = remember(videos) { videos.mapNotNull { it.season }.distinct().sorted() }
     var season by remember(videos) {
@@ -605,8 +606,8 @@ private fun SeasonChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .clip(RoundedCornerShape(4.dp))
             .background(
                 when {
-                    focused -> BrandRed
-                    selected -> BrandRed
+                    focused -> BrandAccent
+                    selected -> BrandAccent
                     else -> Color.White.copy(alpha = 0.08f)
                 }
             )
@@ -628,7 +629,7 @@ private fun SeasonChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun EpisodeCard(
-    video: dev.digi.xflixtv.data.Video,
+    video: dev.digi.digix.data.Video,
     active: Boolean,
     onClick: () -> Unit,
 ) {
@@ -644,12 +645,12 @@ private fun EpisodeCard(
         label = "episodeElevation",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (focused) Color.White else (if (active) BrandRed else Color.Transparent),
+        targetValue = if (focused) Color.White else (if (active) BrandAccent else Color.Transparent),
         animationSpec = tween(180, easing = FastOutSlowInEasing),
         label = "episodeBorder",
     )
     val epColor by animateColorAsState(
-        targetValue = if (focused || active) BrandRed else Muted,
+        targetValue = if (focused || active) BrandAccent else Muted,
         animationSpec = tween(180, easing = FastOutSlowInEasing),
         label = "episodeNumColor",
     )
@@ -665,7 +666,7 @@ private fun EpisodeCard(
                 shadowElevation = elevation.value
             }
             .clip(RoundedCornerShape(TvDimens.corner))
-            .background(if (focused) SurfaceFocused else (if (active) BrandRed.copy(alpha = 0.25f) else Surface))
+            .background(if (focused) SurfaceFocused else (if (active) BrandAccent.copy(alpha = 0.25f) else Surface))
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -715,7 +716,7 @@ private fun StreamRow(
         label = "streamElevation",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (focused) Color.White else (if (best) BrandRed.copy(alpha = 0.4f) else Color.Transparent),
+        targetValue = if (focused) Color.White else (if (best) BrandAccent.copy(alpha = 0.4f) else Color.Transparent),
         animationSpec = tween(200, easing = FastOutSlowInEasing),
         label = "streamBorder",
     )
@@ -752,19 +753,19 @@ private fun StreamRow(
                 Modifier
                     .width(74.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(if (best) BrandRed.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.05f))
+                    .background(if (best) BrandAccent.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.05f))
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     stream.qualityLabel.ifEmpty { "HD" },
-                    color = if (best) BrandRed else OnBg,
+                    color = if (best) BrandAccent else OnBg,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     if (best) "BEST" else if (stream.isCached) "CACHED" else "SOURCE",
-                    color = if (best) BrandRed else MutedDim,
+                    color = if (best) BrandAccent else MutedDim,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.8.sp,
@@ -801,7 +802,7 @@ private fun StreamRow(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stats.joinToString("  ·  "),
-                        color = if (stream.audioLabel == "Atmos") BrandRed else MutedDim,
+                        color = if (stream.audioLabel == "Atmos") BrandAccent else MutedDim,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -813,7 +814,7 @@ private fun StreamRow(
                 Modifier
                     .size(38.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(if (focused) BrandRed else Color.White.copy(alpha = 0.08f)),
+                    .background(if (focused) BrandAccent else Color.White.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = if (focused) Color.White else OnBg, modifier = Modifier.size(18.dp))

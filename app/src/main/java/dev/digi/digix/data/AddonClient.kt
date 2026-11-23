@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.data
+package dev.digi.digix.data
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers

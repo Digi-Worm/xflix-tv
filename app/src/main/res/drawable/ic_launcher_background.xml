@@ -4,10 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Deep indigo field -->
     <path
         android:pathData="M0,0h108v108h-108z"
-        android:fillColor="#141414" />
+        android:fillColor="#0B0B18" />
+    <!-- Soft violet aura behind the mark -->
     <path
-        android:pathData="M54,54m-42,0a42,42 0 1,0 84,0a42,42 0 1,0 -84,0"
-        android:fillColor="#220D10" />
+        android:pathData="M54,54m-40,0a40,40 0 1,0 80,0a40,40 0 1,0 -80,0"
+        android:fillColor="#1A1030" />
+    <path
+        android:pathData="M54,54m-28,0a28,28 0 1,0 56,0a28,28 0 1,0 -56,0"
+        android:fillColor="#241442" />
 </vector>

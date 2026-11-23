@@ -5,23 +5,19 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Stroke 1: Bottom diagonal ribbon (Top-Left to Bottom-Right) in deep crimson -->
+    <!-- D — geometric bowl with an elliptical counter knocked out.
+         evenOdd turns the inner path into a hole. -->
     <path
-        android:fillColor="#B80710"
-        android:pathData="M31,24 L46,24 L77,84 L62,84 Z" />
+        android:fillType="evenOdd"
+        android:fillColor="#A78BFA"
+        android:pathData="M30,32 L41,32 A22,22 0 0 1 41,76 L30,76 Z M38,42 L41,42 A11,11 0 0 1 41,66 L38,66 Z" />
 
-    <!-- Authentic 3D Overlap Drop Shadow where ribbons cross -->
+    <!-- X — two crossed diagonal bars, top-left to bottom-right first. -->
     <path
-        android:fillColor="#60000000"
-        android:pathData="M44,45 L64,45 L54,63 L34,63 Z" />
+        android:fillColor="#22D3EE"
+        android:pathData="M58,32 L64,32 L78,76 L72,76 Z" />
+    <path
+        android:fillColor="#22D3EE"
+        android:pathData="M72,32 L78,32 L64,76 L58,76 Z" />
 
-    <!-- Stroke 2: Top diagonal ribbon (Top-Right to Bottom-Left) in primary red -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M62,24 L77,24 L46,84 L31,84 Z" />
-
-    <!-- Specular light reflection on top ribbon for realistic 3D depth -->
-    <path
-        android:fillColor="#28FFFFFF"
-        android:pathData="M62,24 L65,24 L34,84 L31,84 Z" />
 </vector>

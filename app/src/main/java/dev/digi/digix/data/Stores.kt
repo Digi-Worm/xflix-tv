@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.data
+package dev.digi.digix.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit

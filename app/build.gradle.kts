@@ -6,15 +6,15 @@ plugins {
 }
 
 android {
-    namespace = "dev.digi.xflixtv"
+    namespace = "dev.digi.digix"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.digi.xflixtv"
+        applicationId = "dev.digi.digix"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "2.0.0"
+        versionCode = 9
+        versionName = "2.1.0"
 
         ndk {
             // TCL / budget Android TVs are 32-bit armv7, so the v7a libtorrent

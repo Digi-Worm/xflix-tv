@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.screens
+package dev.digi.digix.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,7 +21,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
-import dev.digi.xflixtv.ui.theme.*
+import dev.digi.digix.ui.theme.*
 
 @Composable
 fun AddonsScreen(

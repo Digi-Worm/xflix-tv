@@ -1,9 +1,9 @@
-package dev.digi.xflixtv.ui
+package dev.digi.digix.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.digi.xflixtv.XflixTvApp
-import dev.digi.xflixtv.data.*
+import dev.digi.digix.DigiXApp
+import dev.digi.digix.data.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -174,7 +174,7 @@ data class DetailState(
 
 class MainViewModel : ViewModel() {
 
-    private val app get() = XflixTvApp.instance
+    private val app get() = DigiXApp.instance
     private val client get() = app.addonClient
     private val addonStore get() = app.addonStore
     private val libraryStore get() = app.libraryStore
@@ -714,7 +714,7 @@ class MainViewModel : ViewModel() {
         _detail.value = _detail.value.copy(meta = effectiveMeta, addonUrl = base, type = resolvedType)
 
         android.util.Log.i(
-            "XflixTV",
+            "DigiXTV",
             "detail type=$resolvedType streamId=$streamId videos=${effectiveMeta.videos?.size ?: 0}",
         )
 
@@ -753,7 +753,7 @@ class MainViewModel : ViewModel() {
             video.id
         }
 
-        android.util.Log.i("XflixTV", "selectEpisode -> $streamId ($type)")
+        android.util.Log.i("DigiXTV", "selectEpisode -> $streamId ($type)")
         val allStreams = fetchStreams(type, streamId)
         _detail.value = _detail.value.copy(streams = allStreams, streamsLoading = false)
         allStreams.firstOrNull()?.let { stream ->
@@ -785,7 +785,7 @@ class MainViewModel : ViewModel() {
                     if (!client.supportsStream(url)) return@launch
                     val found = client.streams(url, type, streamId)
                     android.util.Log.i(
-                        "XflixTV",
+                        "DigiXTV",
                         "${url.substringAfter("//")} -> ${found.size} streams ($type/$streamId)",
                     )
                     if (found.isEmpty()) return@launch

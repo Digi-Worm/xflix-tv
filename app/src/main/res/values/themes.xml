@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Fullscreen, chrome-less theme for Xflix TV -->
-    <style name="Theme.XflixTV" parent="android:Theme.Material.NoActionBar.Fullscreen">
+    <!-- Fullscreen, chrome-less theme for Digi X TV -->
+    <style name="Theme.DigiXTV" parent="android:Theme.Material.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
@@ -12,6 +12,6 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
-    <style name="Theme.BrandStyleXTV" parent="Theme.XflixTV" />
-    
+    <style name="Theme.BrandStyleXTV" parent="Theme.DigiXTV" />
+
 </resources>

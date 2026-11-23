@@ -1,11 +1,11 @@
-package dev.digi.xflixtv.data
+package dev.digi.digix.data
 
 import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.util.Log
 import coil.Coil
-import dev.digi.xflixtv.XflixTvApp
+import dev.digi.digix.DigiXApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -169,7 +169,7 @@ object StorageJanitor {
 
     /** Called from the Application when the OS flags memory pressure. */
     fun onTrim(level: Int) {
-        val context = runCatching { XflixTvApp.instance }.getOrNull() ?: return
+        val context = runCatching { DigiXApp.instance }.getOrNull() ?: return
         if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
         scope.launch { sweep(context, aggressive = true) }
     }

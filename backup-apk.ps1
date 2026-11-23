@@ -1,6 +1,6 @@
-# Xflix TV - versioned APK backup with a rolling keep-4 policy.
+# Digi X TV - versioned APK backup with a rolling keep-4 policy.
 #
-# Every build is archived as  Xflix-TV-v<versionName>-b<versionCode>.apk  under
+# Every build is archived as  DigiX-TV-v<versionName>-b<versionCode>.apk  under
 # backups\apk\, and anything older than the four newest is deleted so a stale
 # build can never be reinstalled by mistake.
 #
@@ -29,7 +29,7 @@ if ($badging -match "versionCode='([^']+)'") { $versionCode = $Matches[1] }
 
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
-$name   = "Xflix-TV-v$versionName-b$versionCode.apk"
+$name   = "DigiX-TV-v$versionName-b$versionCode.apk"
 $target = Join-Path $dest $name
 
 Copy-Item -Force $apk $target
@@ -37,7 +37,7 @@ $sizeMb = [Math]::Round((Get-Item $target).Length / 1MB, 2)
 Write-Host "Archived  $name  ($sizeMb MB)"
 
 # Drop anything beyond the four newest archives.
-$archives = Get-ChildItem -Path $dest -Filter "Xflix-TV-v*.apk" |
+$archives = Get-ChildItem -Path $dest -Filter "DigiX-TV-v*.apk" |
     Sort-Object LastWriteTime -Descending
 
 $archives | Select-Object -Skip $KEEP | ForEach-Object {
@@ -47,7 +47,7 @@ $archives | Select-Object -Skip $KEEP | ForEach-Object {
 
 Write-Host ""
 Write-Host "Retained archives:"
-Get-ChildItem -Path $dest -Filter "Xflix-TV-v*.apk" |
+Get-ChildItem -Path $dest -Filter "DigiX-TV-v*.apk" |
     Sort-Object LastWriteTime -Descending |
     ForEach-Object {
         $mb = [Math]::Round($_.Length / 1MB, 2)

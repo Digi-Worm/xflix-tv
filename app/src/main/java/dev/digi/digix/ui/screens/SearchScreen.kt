@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.screens
+package dev.digi.digix.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -42,10 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.digi.xflixtv.data.Meta
-import dev.digi.xflixtv.ui.MainViewModel
-import dev.digi.xflixtv.ui.components.PosterCard
-import dev.digi.xflixtv.ui.theme.*
+import dev.digi.digix.data.Meta
+import dev.digi.digix.ui.MainViewModel
+import dev.digi.digix.ui.components.PosterCard
+import dev.digi.digix.ui.theme.*
 
 private val GENRE_PILLS = listOf(
     "Trending",
@@ -118,7 +118,7 @@ fun SearchScreen(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Search",
-                tint = if (isInputFocused) BrandRed else Color(0xFF888888),
+                tint = if (isInputFocused) BrandAccent else Color(0xFF888888),
                 modifier = Modifier.size(24.dp),
             )
             Spacer(Modifier.width(12.dp))
@@ -138,7 +138,7 @@ fun SearchScreen(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                 ),
-                cursorBrush = SolidColor(BrandRed),
+                cursorBrush = SolidColor(BrandAccent),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
@@ -198,7 +198,7 @@ fun SearchScreen(
                 val pillBg by animateColorAsState(
                     targetValue = when {
                         isPillFocused -> Color.White
-                        isSelected -> BrandRed
+                        isSelected -> BrandAccent
                         else -> Color(0xFF222222)
                     },
                     animationSpec = tween(150),
@@ -249,7 +249,7 @@ fun SearchScreen(
         ) {
             val titleText = when {
                 searchLoading -> "Searching titles…"
-                textInput.isBlank() || selectedGenre == "Trending" -> "Trending on Xflix TV"
+                textInput.isBlank() || selectedGenre == "Trending" -> "Trending on Digi X TV"
                 searchResults.isNotEmpty() -> "Results for \"$textInput\" (${searchResults.size})"
                 else -> "No results found for \"$textInput\""
             }
@@ -262,7 +262,7 @@ fun SearchScreen(
             if (searchLoading) {
                 Spacer(Modifier.width(12.dp))
                 CircularProgressIndicator(
-                    color = BrandRed,
+                    color = BrandAccent,
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
                 )

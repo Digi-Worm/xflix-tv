@@ -5,70 +5,65 @@
     android:viewportWidth="320"
     android:viewportHeight="180">
 
-    <!-- Deep obsidian background -->
+    <!-- Deep indigo field -->
     <path
         android:pathData="M0,0h320v180h-320z"
-        android:fillColor="#111111" />
+        android:fillColor="#0B0B18" />
 
-    <!-- Subtle glowing red ambiance behind logo -->
+    <!-- Violet aura behind the mark -->
     <path
-        android:pathData="M160,70m-80,0a80,50 0 1,0 160,0a80,50 0 1,0 -160,0"
-        android:fillColor="#240D10" />
+        android:pathData="M60,90m-46,0a46,46 0 1,0 92,0a46,46 0 1,0 -92,0"
+        android:fillColor="#1A1030" />
 
-    <!-- Ribbon X: Stroke 1 (Back diagonal, Deep Red) -->
+    <!-- ============ DX monogram (left) ============ -->
+    <!-- D bowl with elliptical counter -->
     <path
-        android:fillColor="#B80710"
-        android:pathData="M136,30 L154,30 L184,102 L166,102 Z" />
+        android:fillType="evenOdd"
+        android:fillColor="#A78BFA"
+        android:pathData="M22,58 L36,58 A26,26 0 0 1 36,110 L22,110 Z M32,70 L36,70 A14,14 0 0 1 36,98 L32,98 Z" />
+    <!-- X crossed bars -->
+    <path
+        android:fillColor="#22D3EE"
+        android:pathData="M56,58 L63,58 L79,110 L72,110 Z" />
+    <path
+        android:fillColor="#22D3EE"
+        android:pathData="M72,58 L79,58 L63,110 L56,110 Z" />
 
-    <!-- 3D Overlap Shadow where ribbons intersect -->
+    <!-- ============ Wordmark (right) ============ -->
+    <!-- "DIGI" in white -->
     <path
-        android:fillColor="#66000000"
-        android:pathData="M150,56 L170,56 L160,76 L140,76 Z" />
-
-    <!-- Ribbon X: Stroke 2 (Front diagonal, brand red) -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M166,30 L184,30 L154,102 L136,102 Z" />
-
-    <!-- Specular highlight on front ribbon -->
-    <path
-        android:fillColor="#2AFFFFFF"
-        android:pathData="M166,30 L169,30 L139,102 L136,102 Z" />
-
-    <!-- "XFLIX" Typography (Centered around x=160) -->
-    <!-- X -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M91,126 L96,126 L103,137 L110,126 L115,126 L106,141 L115,156 L110,156 L103,145 L96,156 L91,156 L100,141 Z" />
-    <!-- F -->
+        android:fillType="evenOdd"
+        android:fillColor="#FFFFFF"
+        android:pathData="M104,62 L112,62 A18,18 0 0 1 112,98 L104,98 Z M110,68 L112,68 A11.5,11.5 0 0 1 112,92 L110,92 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M121,126 L137,126 L137,131 L126,131 L126,138 L135,138 L135,143 L126,143 L126,156 L121,156 Z" />
-    <!-- L -->
+        android:pathData="M120,62 L126,62 L126,98 L120,98 Z" />
+    <path
+        android:fillType="evenOdd"
+        android:fillColor="#FFFFFF"
+        android:pathData="M131,80 A16,18 0 1 1 131,79.9 Z M137,86 A10,12 0 1 0 137,86.1 Z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M142,126 L147,126 L147,151 L158,151 L158,156 L142,156 Z" />
-    <!-- I -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M163,126 L168,126 L168,156 L163,156 Z" />
-    <!-- X -->
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M173,126 L178,126 L185,137 L192,126 L197,126 L188,141 L197,156 L192,156 L185,145 L178,156 L173,156 L182,141 Z" />
+        android:pathData="M146,62 L152,62 L152,98 L146,98 Z" />
 
-    <!-- "TV" Red Pill Badge -->
+    <!-- "X" in cyan -->
     <path
-        android:fillColor="#E50914"
-        android:pathData="M205,130 L227,130 A2,2 0 0,1 229,132 L229,150 A2,2 0 0,1 227,152 L205,152 A2,2 0 0,1 203,150 L203,132 A2,2 0 0,1 205,130 Z" />
+        android:fillColor="#22D3EE"
+        android:pathData="M161,62 L168,62 L180,98 L173,98 Z" />
+    <path
+        android:fillColor="#22D3EE"
+        android:pathData="M173,62 L180,62 L168,98 L161,98 Z" />
 
-    <!-- "T" in Badge -->
+    <!-- "TV" violet pill badge -->
+    <path
+        android:fillColor="#7C3AED"
+        android:pathData="M190,68 L222,68 A5,5 0 0 1 227,73 L227,91 A5,5 0 0 1 222,96 L190,96 A5,5 0 0 1 185,91 L185,73 A5,5 0 0 1 190,68 Z" />
+    <!-- T -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M207,135 L215,135 L215,138 L212,138 L212,147 L210,147 L210,138 L207,138 Z" />
-
-    <!-- "V" in Badge -->
+        android:pathData="M191,75 L204,75 L204,80 L199.6,80 L199.6,90 L195.4,90 L195.4,80 L191,80 Z" />
+    <!-- V -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M217,135 L220,135 L222.5,143 L225,135 L228,135 L224,147 L221,147 Z" />
+        android:pathData="M207,75 L211.2,75 L213.6,85.2 L216,75 L220.2,75 L215.6,90 L211.6,90 Z" />
 </vector>

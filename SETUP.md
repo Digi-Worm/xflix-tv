@@ -1,9 +1,9 @@
-# Working on Xflix TV from a fresh clone
+# Working on Digi X TV from a fresh clone
 
 This is the loop to use every session: pull, build, test on the TV, archive the
 APK, push. Nothing here needs the old local machine state.
 
-Repository: `https://github.com/Digi-Worm/xflix-tv` (private)
+Repository: `https://github.com/Digi-Worm/digi-x-tv` (private)
 
 ---
 
@@ -32,8 +32,8 @@ Or just set `ANDROID_HOME=C:\Android\Sdk` and skip the file.
 ## 2. Clone and build
 
 ```
-git clone https://github.com/Digi-Worm/xflix-tv.git
-cd xflix-tv
+git clone https://github.com/Digi-Worm/digi-x-tv.git
+cd digi-x-tv
 .\gradlew.bat :app:assembleDebug --offline
 ```
 
@@ -53,10 +53,10 @@ options).
 ```
 adb connect 192.168.1.111:5555
 adb -s 192.168.1.111:5555 install -r app\build\outputs\apk\debug\app-debug.apk
-adb -s 192.168.1.111:5555 shell am start -n dev.digi.xflixtv/.MainActivity
+adb -s 192.168.1.111:5555 shell am start -n dev.digi.digix/.MainActivity
 ```
 
-Package id: `dev.digi.xflixtv`
+Package id: `dev.digi.digix`
 
 ### TV specifics that cost time if forgotten
 
@@ -97,13 +97,13 @@ Only archive a build you have actually verified on the TV.
 .\backup-apk.ps1
 ```
 
-This copies the debug APK to `backups\apk\Xflix-TV-v<name>-b<code>.apk` and keeps
+This copies the debug APK to `backups\apk\DigiX-TV-v<name>-b<code>.apk` and keeps
 only the four newest, so a stale build can never be reinstalled by accident.
 
 Then publish it into the repo (one APK only, always the current tested one):
 
 ```
-copy /Y backups\apk\Xflix-TV-v1.5.1-b7.apk release\
+copy /Y backups\apk\DigiX-TV-v1.5.1-b7.apk release\
 ```
 
 `release/*.apk` is the single exception to the `*.apk` ignore rule. Delete the
@@ -129,7 +129,7 @@ depending on direction.
 
 ```
 git add -A
-git commit -m "Xflix TV v1.5.2 (versionCode 8): <what changed>"
+git commit -m "Digi X TV v1.5.2 (versionCode 8): <what changed>"
 git push origin main
 ```
 
@@ -144,7 +144,7 @@ more than on the prose.
 Tracked:
 
 ```
-app/src/main/java/dev/digi/xflixtv/**   19 Kotlin files
+app/src/main/java/dev/digi/digix/**   19 Kotlin files
 app/src/main/res/**                        icons, theme, strings
 app/src/main/AndroidManifest.xml
 app/build.gradle.kts
@@ -152,7 +152,7 @@ build.gradle.kts, settings.gradle.kts, gradle.properties
 gradle/wrapper/**                          wrapper jar + properties
 gradlew.bat
 backup-apk.ps1
-release/Xflix-TV-v<ver>-b<code>.apk        the current tested build
+release/DigiX-TV-v<ver>-b<code>.apk        the current tested build
 README.md, SETUP.md, .gitignore
 ```
 

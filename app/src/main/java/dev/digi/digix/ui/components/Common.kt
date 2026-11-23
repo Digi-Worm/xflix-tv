@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.components
+package dev.digi.digix.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -41,9 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
-import dev.digi.xflixtv.R
-import dev.digi.xflixtv.data.Meta
-import dev.digi.xflixtv.ui.theme.*
+import dev.digi.digix.R
+import dev.digi.digix.data.Meta
+import dev.digi.digix.ui.theme.*
 
 /** Focus lift shared by every card: subtle scale and crisp elevation. */
 @Composable
@@ -71,6 +71,7 @@ fun PosterCard(
     onFocus: () -> Unit = {},
 ) {
     var focused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
     val scale = animateFloatAsState(
         targetValue = if (focused) 1.06f else 1f,
         animationSpec = tween(220, easing = FastOutSlowInEasing),
@@ -89,12 +90,12 @@ fun PosterCard(
 
     Box(
         modifier = modifier
-            .width(TvDimens.posterWidth)
-            .height(TvDimens.posterHeight)
+            .width(m.d(TvDimens.posterWidth))
+            .height(m.d(TvDimens.posterHeight))
             .zIndex(if (focused) 10f else 1f)
             .focusScaleLayer(scale)
             .graphicsLayer { shadowElevation = elevation.value }
-            .clip(RoundedCornerShape(TvDimens.corner))
+            .clip(RoundedCornerShape(m.d(TvDimens.corner)))
             .background(SurfaceHigh)
             .onFocusChanged {
                 focused = it.isFocused
@@ -113,9 +114,9 @@ fun PosterCard(
             Text(
                 meta.name,
                 color = OnBg,
-                fontSize = 13.sp,
+                fontSize = m.f(13f),
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.align(Alignment.Center).padding(12.dp),
+                modifier = Modifier.align(Alignment.Center).padding(m.d(12.dp)),
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -126,29 +127,30 @@ fun PosterCard(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .border(2.dp, Color.White.copy(alpha = ringAlpha), RoundedCornerShape(TvDimens.corner))
+                    .border(2.dp, Color.White.copy(alpha = ringAlpha), RoundedCornerShape(m.d(TvDimens.corner)))
             )
         }
 
-        // Quiet caption on focus: title, then year / runtime.
-        if (focused) {
+        // Caption rides permanently on touch devices, where there is no focus
+        // state to reveal it, and on focus for D-pad navigation.
+        if (focused || m.isTouch) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(72.dp)
+                    .height(m.d(72.dp))
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
                             listOf(Color.Transparent, Color(0xF20A0A0A))
                         )
                     )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = m.d(12.dp), vertical = m.d(10.dp)),
             ) {
                 Column(Modifier.align(Alignment.BottomStart)) {
                     Text(
                         text = meta.name,
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = m.f(13f),
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -158,11 +160,11 @@ fun PosterCard(
                         meta.runtime?.takeIf { meta.videos.isNullOrEmpty() }?.let { "$it min" },
                     ).joinToString("  ·  ")
                     if (sub.isNotBlank()) {
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(m.d(3.dp)))
                         Text(
                             text = sub,
                             color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 10.sp,
+                            fontSize = m.f(10f),
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                         )
@@ -440,7 +442,7 @@ fun BrandRailItem(
                         .width(4.dp)
                         .height(18.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(BrandRed)
+                        .background(BrandAccent)
                 )
                 Spacer(Modifier.width(8.dp))
             }
@@ -490,7 +492,7 @@ fun RailItem(
  * Full-bleed hero billboard:
  * - High-res cinematic backdrop.
  * - Left & bottom vignette gradients.
- * - Red "X" and "FILM / SERIES" tag.
+ * - "DX" monogram and "FILM / SERIES" tag.
  * - Bold title, #1 in Movies, 98% Match, Ultra HD 4K chips.
  * - Solid White Play button + Translucent More Info button.
  */
@@ -547,18 +549,19 @@ fun BrandHeroBillboard(
                 .padding(start = TvDimens.contentStart, bottom = 24.dp)
                 .fillMaxWidth(0.68f),
         ) {
-            // Xflix Brand Tag: Red "X" + "FLIX FILM" or "FLIX SERIES" so X never repeats
+            // Digi X brand tag: "DX" monogram followed by FILM / SERIES
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    "X",
-                    color = BrandRed,
-                    fontSize = 24.sp,
+                    "DX",
+                    color = BrandAccent,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
+                    letterSpacing = (-1).sp,
                 )
-                val categoryTag = if (meta.videos.isNullOrEmpty()) "FLIX FILM" else "FLIX SERIES"
+                val categoryTag = if (meta.videos.isNullOrEmpty()) "FILM" else "SERIES"
                 Text(
                     categoryTag,
                     color = Color.White.copy(alpha = 0.9f),
@@ -591,7 +594,7 @@ fun BrandHeroBillboard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .background(BrandRed, RoundedCornerShape(2.dp))
+                        .background(BrandAccent, RoundedCornerShape(2.dp))
                         .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -609,7 +612,7 @@ fun BrandHeroBillboard(
                 )
                 Text(
                     "98% Match",
-                    color = BrandGreen,
+                    color = BrandSuccess,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )

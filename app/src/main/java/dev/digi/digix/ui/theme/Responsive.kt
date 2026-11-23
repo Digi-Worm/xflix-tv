@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.theme
+package dev.digi.digix.ui.theme
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
@@ -6,10 +6,15 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -35,6 +40,13 @@ data class UiMetrics(
     val shortSide: Dp,
     /** True when there is too little room for two-line control decks. */
     val isCompact: Boolean,
+    /** Portrait viewport — the phone/tablet case, not a TV. */
+    val isPortrait: Boolean = false,
+    /**
+     * No D-pad and no focus model: reveal-on-focus affordances (poster
+     * captions, hint rows) must be shown unconditionally instead.
+     */
+    val isTouch: Boolean = false,
 ) {
     /** Scale a design dimension authored for the reference panel. */
     fun d(base: Dp): Dp = (base.value * scale).dp
@@ -61,13 +73,32 @@ fun uiMetrics(): UiMetrics = LocalUiMetrics.current
  */
 @Composable
 fun ResponsiveScope(content: @Composable () -> Unit) {
+    val configuration = LocalConfiguration.current
+    val context = LocalContext.current
+
+    // Leanback is set by every Android TV build and absent on phones/tablets,
+    // so it is the cheapest reliable way to tell the two apart.
+    val isTouchDevice = !context.packageManager
+        .hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+
     BoxWithConstraints {
         val shortSide = min(maxWidth.value, maxHeight.value)
-        val metrics = remember(shortSide) {
+        val metrics = remember(
+            shortSide,
+            maxWidth.value,
+            maxHeight.value,
+            isTouchDevice,
+        ) {
+            // A phone held in portrait has a short side of ~360dp, which maps to
+            // a 0.72 scale. That is correct for spacing, but a TV-shaped
+            // horizontal rail is still wrong there — callers check isPortrait.
+            val portrait = maxHeight.value > maxWidth.value
             UiMetrics(
                 scale = (shortSide / REFERENCE_SHORT_SIDE).coerceIn(0.72f, 1.25f),
                 shortSide = shortSide.dp,
                 isCompact = shortSide < 460f,
+                isPortrait = portrait,
+                isTouch = isTouchDevice,
             )
         }
         CompositionLocalProvider(LocalUiMetrics provides metrics) {

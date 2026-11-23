@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui
+package dev.digi.digix.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -46,17 +46,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.digi.xflixtv.XflixTvApp
-import dev.digi.xflixtv.data.Stream
-import dev.digi.xflixtv.ui.player.PlayerScreen
-import dev.digi.xflixtv.ui.screens.AddonsScreen
-import dev.digi.xflixtv.ui.screens.DetailScreen
-import dev.digi.xflixtv.ui.screens.HomeScreen
-import dev.digi.xflixtv.ui.screens.LibraryScreen
-import dev.digi.xflixtv.ui.screens.SearchScreen
-import dev.digi.xflixtv.ui.screens.SettingsScreen
-import dev.digi.xflixtv.ui.theme.*
-import dev.digi.xflixtv.ui.theme.ResponsiveScope
+import dev.digi.digix.DigiXApp
+import dev.digi.digix.data.Stream
+import dev.digi.digix.ui.player.PlayerScreen
+import dev.digi.digix.ui.screens.AddonsScreen
+import dev.digi.digix.ui.screens.DetailScreen
+import dev.digi.digix.ui.screens.HomeScreen
+import dev.digi.digix.ui.screens.LibraryScreen
+import dev.digi.digix.ui.screens.SearchScreen
+import dev.digi.digix.ui.screens.SettingsScreen
+import dev.digi.digix.ui.theme.*
+import dev.digi.digix.ui.theme.ResponsiveScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -107,11 +107,11 @@ private fun AppleTopBar() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "XFLIX",
+            text = "DIGI X TV",
             color = Color.White,
             fontSize = m.f(15f),
             fontWeight = FontWeight.Black,
-            letterSpacing = m.f(3.5f),
+            letterSpacing = m.f(2.5f),
         )
         Spacer(Modifier.weight(1f))
         Text(
@@ -296,7 +296,7 @@ private fun AppleHeader(
 
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
-    val app = XflixTvApp.instance
+    val app = DigiXApp.instance
     val home by vm.home.collectAsStateWithLifecycle()
     val detail by vm.detail.collectAsStateWithLifecycle()
     val installed by vm.installed.collectAsStateWithLifecycle()

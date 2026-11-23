@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.player
+package dev.digi.digix.ui.player
 
 import android.net.Uri
 import android.util.Log
@@ -88,19 +88,19 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.compose.material3.Text
-import dev.digi.xflixtv.R
-import dev.digi.xflixtv.data.Stream
-import dev.digi.xflixtv.data.TorrentEngine
-import dev.digi.xflixtv.data.availableAudioLanguages
-import dev.digi.xflixtv.data.findBestForAudio
-import dev.digi.xflixtv.ui.theme.Accent
-import dev.digi.xflixtv.ui.theme.Bg
-import dev.digi.xflixtv.ui.theme.Muted
-import dev.digi.xflixtv.ui.theme.OnBg
-import dev.digi.xflixtv.ui.theme.BrandRed
-import dev.digi.xflixtv.ui.theme.SurfaceFocused
-import dev.digi.xflixtv.ui.theme.ResponsiveScope
-import dev.digi.xflixtv.ui.theme.uiMetrics
+import dev.digi.digix.R
+import dev.digi.digix.data.Stream
+import dev.digi.digix.data.TorrentEngine
+import dev.digi.digix.data.availableAudioLanguages
+import dev.digi.digix.data.findBestForAudio
+import dev.digi.digix.ui.theme.Accent
+import dev.digi.digix.ui.theme.Bg
+import dev.digi.digix.ui.theme.Muted
+import dev.digi.digix.ui.theme.OnBg
+import dev.digi.digix.ui.theme.BrandAccent
+import dev.digi.digix.ui.theme.SurfaceFocused
+import dev.digi.digix.ui.theme.ResponsiveScope
+import dev.digi.digix.ui.theme.uiMetrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -1185,7 +1185,7 @@ fun PlayerScreen(
             exit = fadeOut(animationSpec = tween(250, easing = FastOutSlowInEasing)),
             modifier = Modifier.align(Alignment.Center),
         ) {
-            XflixProgressLogo(progress = animatedProgress)
+            DigiXProgressLogo(progress = animatedProgress)
         }
 
         AnimatedVisibility(
@@ -1586,12 +1586,12 @@ private fun SeekBar(
 }
 
 /**
- * Modern Xflix Brand Loading Indicator:
+ * Modern Digi X brand loading indicator:
  * - Liquid vertical color fill: authentic 3D red "X" logo vector filling from bottom to top as percent progress.
  * - Clean percentage progress only (no technical clutter, peers, or speed info).
  */
 @Composable
-private fun XflixProgressLogo(
+private fun DigiXProgressLogo(
     progress: Float,
     modifier: Modifier = Modifier,
 ) {
@@ -1754,7 +1754,7 @@ private fun OptionsPanel(
                         }
                     }
                     if (item.selected || selected) {
-                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = BrandRed, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Filled.Check, contentDescription = "Selected", tint = BrandAccent, modifier = Modifier.size(14.dp))
                     }
                 }
             }

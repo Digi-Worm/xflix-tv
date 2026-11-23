@@ -1,4 +1,4 @@
-package dev.digi.xflixtv.ui.screens
+package dev.digi.digix.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,8 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.digi.xflixtv.data.StorageJanitor
-import dev.digi.xflixtv.ui.theme.*
+import dev.digi.digix.data.StorageJanitor
+import dev.digi.digix.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -56,15 +56,16 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "X",
-                color = BrandRed,
-                fontSize = 32.sp,
+                "DX",
+                color = BrandAccent,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Black,
+                letterSpacing = (-1.5).sp,
             )
             Spacer(Modifier.width(10.dp))
             Column {
                 Text(
-                    "Xflix TV",
+                    "Digi X TV",
                     color = OnBg,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
@@ -77,8 +78,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        SettingLine("App Name", "Xflix TV")
-        SettingLine("Version", "${dev.digi.xflixtv.BuildConfig.VERSION_NAME} (TV Edition)")
+        SettingLine("App Name", "Digi X TV")
+        SettingLine("Version", "${dev.digi.digix.BuildConfig.VERSION_NAME} (TV Edition)")
         SettingLine("UI Theme", "Cinema Dark (4K HDR)")
         SettingLine("Addons & Catalogs", "Managed dynamically via Addons tab")
         SettingLine("Playback Engine", "ExoPlayer Hardware Decoding & High-Performance Torrent Engine")
@@ -104,7 +105,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         lastClean?.let {
             Text(
                 it,
-                color = BrandGreen,
+                color = BrandSuccess,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = TvDimens.contentStart, top = 6.dp),
             )
@@ -145,7 +146,7 @@ private fun ActionLine(
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(TvDimens.corner))
             .background(if (focused) SurfaceFocused else Surface)
-            .border(1.dp, if (focused) BrandRed else SurfaceHigh, RoundedCornerShape(TvDimens.corner))
+            .border(1.dp, if (focused) BrandAccent else SurfaceHigh, RoundedCornerShape(TvDimens.corner))
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -158,7 +159,7 @@ private fun ActionLine(
         Spacer(Modifier.width(16.dp))
         Text(
             action,
-            color = if (enabled) BrandRed else MutedDim,
+            color = if (enabled) BrandAccent else MutedDim,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
