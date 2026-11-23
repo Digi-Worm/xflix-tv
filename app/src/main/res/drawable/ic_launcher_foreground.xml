@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Stroke 1: Bottom diagonal ribbon (Top-Left to Bottom-Right) in deep crimson -->
+    <path
+        android:fillColor="#B80710"
+        android:pathData="M31,24 L46,24 L77,84 L62,84 Z" />
+
+    <!-- Authentic 3D Overlap Drop Shadow where ribbons cross -->
+    <path
+        android:fillColor="#60000000"
+        android:pathData="M44,45 L64,45 L54,63 L34,63 Z" />
+
+    <!-- Stroke 2: Top diagonal ribbon (Top-Right to Bottom-Left) in primary red -->
+    <path
+        android:fillColor="#E50914"
+        android:pathData="M62,24 L77,24 L46,84 L31,84 Z" />
+
+    <!-- Specular light reflection on top ribbon for realistic 3D depth -->
+    <path
+        android:fillColor="#28FFFFFF"
+        android:pathData="M62,24 L65,24 L34,84 L31,84 Z" />
+</vector>
