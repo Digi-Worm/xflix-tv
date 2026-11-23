@@ -31,7 +31,10 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    castInfo: dev.digi.digix.ui.CastInfo? = null,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var cacheLabel by remember { mutableStateOf("measuring…") }
@@ -100,6 +103,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         SettingLine("Addons & Catalogs", "Managed dynamically via Addons tab")
         SettingLine("Playback Engine", "ExoPlayer Hardware Decoding & High-Performance Torrent Engine")
         SettingLine("Account", "Not required — fully local, zero tracking")
+        // Shown so a phone on a network where multicast is blocked can still
+        // connect by typing the address.
+        castInfo?.let { info ->
+            val where = info.host?.let { "$it : ${info.port}" } ?: "Unavailable — no LAN address"
+            SettingLine("Cast to this TV", info.name + " · " + where)
+        }
 
         Spacer(Modifier.height(m.d(9.dp)))
 

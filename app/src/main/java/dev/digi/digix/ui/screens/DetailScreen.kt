@@ -54,8 +54,10 @@ import kotlinx.coroutines.withContext
 import dev.digi.digix.ui.components.focusScale
 import dev.digi.digix.ui.components.focusScaleLayer
 import dev.digi.digix.ui.components.*
+import dev.digi.digix.ui.cast.CastIconButton
 import dev.digi.digix.ui.theme.*
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(
     state: DetailState,
@@ -63,6 +65,8 @@ fun DetailScreen(
     onEpisodeSelect: (dev.digi.digix.data.Video) -> Unit = {},
     resumeMs: Long = 0L,
     onToggleLibrary: (dev.digi.digix.data.Meta) -> Unit = {},
+    /** Present only on touch devices: hands the title to a TV instead of playing here. */
+    onCastRequest: ((dev.digi.digix.data.CastRequest) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val meta = state.meta
@@ -148,6 +152,33 @@ fun DetailScreen(
                         autoPlayPending = true
                     }
                 },
+                onCast = onCastRequest?.let { request ->
+                    {
+                        val target = effectiveStream
+                        if (target != null) {
+                            request(
+                                dev.digi.digix.data.CastRequest(
+                                    title = listOfNotNull(
+                                        meta.name,
+                                        state.selectedVideo?.let { ep ->
+                                            listOfNotNull(ep.season, ep.episode)
+                                                .takeIf { it.size == 2 }
+                                                ?.let { "S${it[0]}E${it[1]}" }
+                                        },
+                                    ).joinToString(" · "),
+                                    infoHash = target.infoHash,
+                                    fileIdx = target.fileIdx ?: 0,
+                                    url = target.url,
+                                    trackers = target.trackers,
+                                    poster = meta.poster,
+                                    positionMs = resumeMs,
+                                )
+                            )
+                        } else {
+                            autoPlayPending = true
+                        }
+                    }
+                },
                 onToggleLibrary = onToggleLibrary,
             )
         }
@@ -166,30 +197,41 @@ fun DetailScreen(
         // Available Audio Languages Selector
         if (!state.streamsLoading && availableAudios.isNotEmpty()) {
             item(key = "audio-selector-${meta.id}") {
+                val m = uiMetrics()
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = TvDimens.contentStart, end = TvDimens.contentStart, top = 8.dp, bottom = 4.dp)
+                        .padding(
+                            start = m.d(TvDimens.contentStart),
+                            end = m.d(TvDimens.contentStart),
+                            top = m.d(8.dp),
+                            bottom = m.d(4.dp),
+                        )
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // FlowRow: on a phone the count/hint string is longer than
+                    // the space left beside the label, so it drops to its own
+                    // line instead of being squeezed to a few characters.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(m.d(8.dp)),
+                        verticalArrangement = Arrangement.spacedBy(m.d(2.dp)),
+                    ) {
                         Text(
                             "AVAILABLE AUDIO",
                             color = MutedDim,
-                            fontSize = 11.sp,
+                            fontSize = m.f(10.5f),
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
+                            letterSpacing = m.f(1f),
                         )
-                        Spacer(Modifier.width(8.dp))
                         Text(
                             "(${availableAudios.size} options · Auto-picks best quality)",
                             color = Muted,
-                            fontSize = 11.sp,
+                            fontSize = m.f(10.5f),
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(m.d(8.dp)))
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(m.d(8.dp)),
+                        contentPadding = PaddingValues(vertical = m.d(4.dp)),
                     ) {
                         item(key = "audio-auto") {
                             AudioFilterChip(
@@ -214,53 +256,61 @@ fun DetailScreen(
 
         // Clean stream status badge (no technical torrent lists)
         item(key = "stream-status-${meta.id}") {
-            Row(
+            val m = uiMetrics()
+            FlowRow(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = TvDimens.contentStart, end = TvDimens.contentStart, top = 12.dp, bottom = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(
+                        start = m.d(TvDimens.contentStart),
+                        end = m.d(TvDimens.contentStart),
+                        top = m.d(12.dp),
+                        bottom = m.d(24.dp),
+                    ),
+                horizontalArrangement = Arrangement.spacedBy(m.d(10.dp)),
+                verticalArrangement = Arrangement.spacedBy(m.d(5.dp)),
             ) {
                 if (state.streamsLoading) {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        color = BrandAccent,
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "Selecting optimal quality for your TV & network…",
-                        color = MutedDim,
-                        fontSize = 13.sp,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            color = BrandAccent,
+                            modifier = Modifier.size(m.d(15.dp)),
+                            strokeWidth = m.d(2.dp),
+                        )
+                        Spacer(Modifier.width(m.d(9.dp)))
+                        Text(
+                            "Selecting optimal quality for your TV & network…",
+                            color = MutedDim,
+                            fontSize = m.f(12f),
+                        )
+                    }
                 } else if (effectiveStream != null) {
                     val isCustom = selectedAudioLanguage != "Auto"
                     val badgeText = if (isCustom) "BEST ${selectedAudioLanguage.uppercase()} SOURCE AUTO-SELECTED"
                         else "BEST SOURCE AUTO-SELECTED"
                     Box(
                         modifier = Modifier
-                            .background(BrandSuccess.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .background(BrandSuccess.copy(alpha = 0.15f), RoundedCornerShape(m.d(4.dp)))
+                            .padding(horizontal = m.d(8.dp), vertical = m.d(4.dp)),
                     ) {
                         Text(
                             badgeText,
                             color = BrandSuccess,
-                            fontSize = 11.sp,
+                            fontSize = m.f(10.5f),
                             fontWeight = FontWeight.Bold,
                         )
                     }
-                    Spacer(Modifier.width(12.dp))
                     val qualityBadge = effectiveStream.qualityLabel.ifEmpty { "HD" }
                     val sizeText = effectiveStream.sizeLabel?.let { " · $it" } ?: ""
                     Text(
                         "$qualityBadge$sizeText · ${effectiveStream.seeders} seeds (Ready for instant play)",
                         color = MutedDim,
-                        fontSize = 13.sp,
+                        fontSize = m.f(12f),
                     )
                 } else {
                     Text(
                         "No playable sources found for this title.",
                         color = Muted,
-                        fontSize = 13.sp,
+                        fontSize = m.f(12f),
                     )
                 }
             }
@@ -275,6 +325,7 @@ private fun AudioFilterChip(
     onClick: () -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val m = uiMetrics()
 
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.10f else 1f,
@@ -295,28 +346,29 @@ private fun AudioFilterChip(
     Box(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(m.d(20.dp)))
             .background(bg)
             .clickable(onClick = onClick)
             .onFocusChanged { isFocused = it.hasFocus }
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = m.d(15.dp), vertical = m.d(7.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isSelected && !isFocused) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(m.d(6.dp))
                         .clip(CircleShape)
                         .background(Color.White)
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(m.d(6.dp)))
             }
             Text(
                 text = label,
                 color = textColor,
-                fontSize = 13.sp,
+                fontSize = m.f(12.5f),
                 fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.SemiBold,
+                maxLines = 1,
             )
         }
     }
@@ -331,6 +383,7 @@ private fun Backdrop(
     isAutoPlayPending: Boolean = false,
     resumeMs: Long,
     onPlay: () -> Unit,
+    onCast: (() -> Unit)? = null,
     onToggleLibrary: (dev.digi.digix.data.Meta) -> Unit = {},
 ) {
     // The backdrop was a fixed 420dp, which is more than half a phone's portrait
@@ -514,6 +567,15 @@ private fun Backdrop(
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
+                    }
+                    // Casting is a phone affordance: on a TV there is nothing to
+                    // cast to, so the callback is simply absent there.
+                    onCast?.let { cast ->
+                        Spacer(Modifier.width(m.d(11.dp)))
+                        CastIconButton(
+                            active = false,
+                            onClick = cast,
+                        )
                     }
                     if (streamsLoading) {
                         Spacer(Modifier.width(m.d(13.dp)))

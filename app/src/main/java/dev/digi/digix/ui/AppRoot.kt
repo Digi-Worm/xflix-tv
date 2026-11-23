@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -52,7 +53,9 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.digi.digix.DigiXApp
+import dev.digi.digix.cast.CastController
 import dev.digi.digix.data.Stream
+import dev.digi.digix.ui.cast.CastSheet
 import dev.digi.digix.ui.player.PlayerScreen
 import dev.digi.digix.ui.screens.AddonsScreen
 import dev.digi.digix.ui.screens.DetailScreen
@@ -336,6 +339,37 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val progressMap by app.libraryStore.progress()
         .collectAsStateWithLifecycle(initialValue = emptyMap())
 
+    // ── Casting ───────────────────────────────────────────────────────────────
+    // A cast is just a remote "play this": it takes over the screen from
+    // whatever the TV was showing, because the viewer pressed play on the phone
+    // and is now looking at this panel.
+    val incomingCast by vm.incomingCast.collectAsStateWithLifecycle()
+    val castInfo by vm.castInfo.collectAsStateWithLifecycle()
+
+    // The received cast is remembered locally: the stream itself is handed to
+    // the player, but the phone's resume point and title only exist on the
+    // request, and the request is consumed as soon as it is acted on.
+    var activeCast by remember { mutableStateOf<dev.digi.digix.ui.IncomingCast?>(null) }
+
+    // The phone-side controller only exists where there is a touchscreen. On a
+    // TV it stays null and every cast affordance disappears from the UI.
+    val context = LocalContext.current
+    val isTouchDevice = remember {
+        !context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+    }
+    val castController = remember(isTouchDevice) {
+        if (isTouchDevice) CastController(context.applicationContext) else null
+    }
+    DisposableEffect(castController) {
+        onDispose { castController?.let { if (!it.sheetVisible) it.discovery.stop() } }
+    }
+
+    LaunchedEffect(incomingCast) {
+        val cast = incomingCast ?: return@LaunchedEffect
+        vm.selectStream(cast.stream)
+        playing = cast.stream
+        vm.consumeIncomingCast()
+    }
     BackHandler(enabled = playing != null || inDetail) {
         when {
             playing != null -> {
@@ -360,15 +394,27 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     playing?.let { stream ->
         val meta = detail.meta
         val startMs = meta?.let { progressMap[it.id] } ?: 0L
+        // A cast arrives with its own resume point; local progress only applies
+        // to titles this TV started itself.
+        val castStart = incomingCast?.startPositionMs ?: 0L
         PlayerScreen(
             stream = stream,
             allStreams = detail.streams,
             torrentEngine = app.torrentEngine,
             title = listOfNotNull(meta?.name, detail.episodeLabel).joinToString(" · "),
-            startPositionMs = startMs,
-            onProgress = { pos -> meta?.let { vm.saveProgress(it.id, pos) } },
+            startPositionMs = if (castStart > 0) castStart else startMs,
+            onProgress = { pos ->
+                meta?.let { vm.saveProgress(it.id, pos) }
+                vm.publishCastStatus(
+                    title = listOfNotNull(meta?.name, detail.episodeLabel).joinToString(" · "),
+                    positionMs = pos,
+                    durationMs = 0L,
+                    playing = true,
+                )
+            },
             onEnded = {
                 vm.clearStream()
+                vm.publishCastStatus(null, 0L, 0L, false)
                 playing = null
             },
         )
@@ -407,6 +453,11 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                             }
                         },
                         onToggleLibrary = { vm.toggleLibrary(it) },
+                        // Only touch devices get a cast affordance: a TV casting
+                        // to itself is meaningless.
+                        onCastRequest = if (castController != null) {
+                            { request -> castController!!.begin(request) }
+                        } else null,
                     )
                 } else {
                     AnimatedContent(
@@ -465,7 +516,7 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                                 onInstall = { url, cb -> vm.installAddon(url, cb) },
                                 onRemove = { vm.removeAddon(it) },
                             )
-                            Tab.Settings -> SettingsScreen()
+                            Tab.Settings -> SettingsScreen(castInfo = castInfo)
                         }
                     }
                 }
@@ -495,5 +546,23 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
                 .windowInsetsPadding(WindowInsets.displayCutout),
         )
       }
+    }
+
+    // The cast sheet floats above every screen (and above the player), because a
+    // cast can be started from anywhere.
+    castController?.let { controller ->
+        val targets by controller.discovery.targets().collectAsStateWithLifecycle()
+        CastSheet(
+            visible = controller.sheetVisible,
+            deviceName = controller.deviceName,
+            castingTo = controller.castingTo,
+            busy = controller.busy,
+            error = controller.error,
+            targets = targets,
+            onDismiss = { controller.dismiss() },
+            onPick = { controller.castTo(it) },
+            onManualConnect = { controller.castToAddress(it) },
+            onStopCasting = { controller.stopCasting() },
+        )
     }
 }

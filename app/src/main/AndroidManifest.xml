@@ -9,9 +9,20 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
+    <!--
+        Casting: the TV advertises itself over mDNS/NSD and both roles use the
+        LAN socket. NEARBY_WIFI_DEVICES is the Android 13+ replacement for the
+        discovery bits of the Wi-Fi permissions; it is not required at install
+        time so a phone on an older release still installs.
+    -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" tools:targetApi="37" />
+
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
+    <!-- Casting needs a LAN; every device we ship to has one, but do not block installs. -->
+    <uses-feature android:name="android.hardware.wifi.direct" android:required="false" />
 
     <application
         android:name=".DigiXApp"

@@ -3,7 +3,9 @@ package dev.digi.digix.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.digi.digix.DigiXApp
+import dev.digi.digix.cast.CastReceiverServer
 import dev.digi.digix.data.*
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -202,6 +204,86 @@ class MainViewModel : ViewModel() {
 
     private val _progress = MutableStateFlow<Map<String, Long>>(emptyMap())
     val progress: StateFlow<Map<String, Long>> = _progress.asStateFlow()
+
+    // ───────────────────────────── Casting (this device = TV) ─────────────────
+    //
+    // The receiver lives in the ViewModel, not in a composable, so a cast that
+    // arrives while the user is browsing still starts playback, and a
+    // configuration change cannot orphan a bound socket.
+
+    private var castReceiver: CastReceiverServer? = null
+
+    private val _incomingCast = MutableStateFlow<IncomingCast?>(null)
+    /** Set when a phone asks this TV to play something; cleared on stop. */
+    val incomingCast: StateFlow<IncomingCast?> = _incomingCast.asStateFlow()
+
+    private val _castInfo = MutableStateFlow<CastInfo?>(null)
+    /** Device name / address to show in Settings so a phone can connect manually. */
+    val castInfo: StateFlow<CastInfo?> = _castInfo.asStateFlow()
+
+    init {
+        startCastReceiver()
+    }
+
+    private fun startCastReceiver() {
+        val context = DigiXApp.instance.applicationContext
+        val name = buildDeviceName()
+        val server = CastReceiverServer(
+            context = context,
+            deviceName = name,
+            onCast = { request ->
+                _incomingCast.value = IncomingCast(
+                    // A cast carries the stream *descriptor*; the TV resolves it
+                    // itself through its own torrent engine. Sending a URL would
+                    // only work for direct-HTTP sources.
+                    stream = Stream(
+                        name = "Cast",
+                        title = request.title,
+                        url = request.url,
+                        infoHash = request.infoHash,
+                        fileIdx = request.fileIdx,
+                        sources = request.trackers,
+                    ),
+                    title = request.title,
+                    startPositionMs = request.positionMs,
+                )
+            },
+            onStopCast = { _incomingCast.value = null },
+        )
+        castReceiver = server
+        // NSD and the socket can both fail (port taken, no LAN). That must never
+        // take the app down — the TV simply is not castable from a phone.
+        runCatching { server.start() }
+
+        viewModelScope.launch {
+            val host = withContext(Dispatchers.IO) { server.localIp }
+            _castInfo.value = CastInfo(name = name, host = host, port = server.port)
+        }
+    }
+
+    /** Called when the viewer dismisses a cast, so a re-cast replays it. */
+    fun consumeIncomingCast() {
+        _incomingCast.value = null
+    }
+
+    /** Mirrors playback state to the phone's status poll. */
+    fun publishCastStatus(title: String?, positionMs: Long, durationMs: Long, playing: Boolean) {
+        castReceiver?.publishStatus(
+            CastStatus(
+                deviceName = _castInfo.value?.name ?: "Digi X TV",
+                title = title,
+                positionMs = positionMs,
+                durationMs = durationMs,
+                playing = playing,
+            )
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        runCatching { castReceiver?.stop() }
+        castReceiver = null
+    }
 
     /** Bounds in-flight catalog HTTP calls so the TV's heap and socket pool survive. */
     private val catalogSemaphore = Semaphore(MAX_CONCURRENT_CATALOG_FETCHES)
@@ -937,4 +1019,41 @@ private fun Video.episodeLabel(): String? {
         title != null -> title
         else -> null
     }
+}
+
+/**
+ * A cast request that has arrived on this TV and is waiting to be played.
+ *
+ * [stream] is only a descriptor: the player resolves the torrent here, on the
+ * TV, exactly as if the viewer had picked it from the detail screen.
+ */
+data class IncomingCast(
+    val stream: Stream,
+    val title: String,
+    val startPositionMs: Long,
+)
+
+/** What this TV tells the phone it is, so manual connections can find it. */
+data class CastInfo(
+    val name: String,
+    val host: String?,
+    val port: Int,
+)
+
+/**
+ * The name a phone sees in its cast list. Prefers the room/device name the
+ * viewer set on the TV, then the model, so two identical boxes are still
+ * distinguishable.
+ */
+internal fun buildDeviceName(): String {
+    val model = Build.MODEL?.trim().orEmpty()
+    val brand = Build.MANUFACTURER?.trim().orEmpty()
+    val name = when {
+        model.isBlank() -> "Digi X TV"
+        model.startsWith(brand, ignoreCase = true) -> model
+        brand.isBlank() -> model
+        else -> "$brand $model"
+    }
+    return name.replace(Regex("[^A-Za-z0-9 ._-]"), " ").trim().take(40)
+        .ifBlank { "Digi X TV" }
 }
