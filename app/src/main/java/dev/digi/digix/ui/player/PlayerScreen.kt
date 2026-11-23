@@ -1418,31 +1418,6 @@ fun PlayerScreen(
                         )
                     }
                 }
-
-                // D-pad hints are meaningless on a phone and cost a whole row of
-                // picture, so they only render where there is a remote.
-                if (!m.isTouch) {
-                    Spacer(Modifier.height(m.d(5.dp)))
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            // Plain words only: this panel's font has no glyphs for
-                            // arrow/triangle symbols, which used to render as "?".
-                            if (seekFocused) {
-                                "Left / Right seek 10s      OK play or pause"
-                            } else {
-                                "Left / Right navigate      OK select      Down for seekbar"
-                            },
-                            color = Muted.copy(alpha = 0.34f),
-                            fontSize = m.f(7.5f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
             }
         }
 
