@@ -12,6 +12,7 @@ import dev.digi.digix.data.AddonStore
 import dev.digi.digix.data.LibraryStore
 import dev.digi.digix.data.StorageJanitor
 import dev.digi.digix.data.TorrentEngine
+import dev.digi.digix.data.UpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,6 +30,8 @@ class DigiXApp : Application(), ImageLoaderFactory {
         private set
     lateinit var libraryStore: LibraryStore
         private set
+    lateinit var updateChecker: UpdateChecker
+        private set
 
     /** Stream requested from outside (digix:// or a launch intent). */
     var deepLinkStream: dev.digi.digix.data.Stream? = null
@@ -40,6 +43,14 @@ class DigiXApp : Application(), ImageLoaderFactory {
         torrentEngine = TorrentEngine()
         addonStore = AddonStore(this)
         libraryStore = LibraryStore(this)
+
+        // Kick off the GitHub release check in the background. It notifies the
+        // user once a day at most and never blocks startup.
+        getSharedPreferences("update_prefs", MODE_PRIVATE)
+            .edit()
+            .putInt("installed_version_code", BuildConfig.VERSION_CODE)
+            .apply()
+        updateChecker = UpdateChecker(this)
 
         // First sweep after start: clears residue from the previous session, then
         // settles into a slow periodic pass so a long binge never fills the box.

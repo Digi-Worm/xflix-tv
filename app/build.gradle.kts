@@ -13,8 +13,8 @@ android {
         applicationId = "dev.digi.digix"
         minSdk = 24
         targetSdk = 34
-        versionCode = 11
-        versionName = "2.1.0"
+        versionCode = 12
+        versionName = "2.2.0"
 
         ndk {
             // TCL / budget Android TVs are 32-bit armv7, so the v7a libtorrent

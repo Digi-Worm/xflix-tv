@@ -96,6 +96,28 @@ PowerShell prints a misleading `Exit code: 1` even on success. Trust the
 
 ---
 
+## Automatic updates
+
+The app checks `api.github.com/repos/Digi-Worm/xflix-tv/releases/latest` once per
+day and compares the release tag against the installed `versionCode`. When a
+newer release exists it posts a notification with a **Download** action that
+opens `DownloadUpdateActivity`, fetches the APK, and hands it to the system
+installer.
+
+Android forbids silent self-updates, so the last step is always the system's own
+"update this app?" prompt. To make that flow work:
+
+1. Publish a GitHub **release** (not just a tag or a push) whose tag carries the
+   version code, e.g. `v2.2.0-b12`, and attach the APK as a release asset.
+2. The APK must be signed with the **same key** as the installed build, or the
+   installer refuses to upgrade over it.
+3. Users must allow "install unknown apps" for Digi X TV on Android 8+.
+
+Because the check keys off `versionCode` extracted from the tag, always bump
+`versionCode` in `app/build.gradle.kts` before publishing.
+
+---
+
 ## Layout reference
 
 The UI was measured against a leanback reference build for spacing and palette
