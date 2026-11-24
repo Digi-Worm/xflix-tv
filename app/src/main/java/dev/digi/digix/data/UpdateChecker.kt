@@ -47,6 +47,8 @@ class UpdateChecker(context: Context) {
         private const val NOTIFICATION_ID = 1001
         private const val MANIFEST_URL =
             "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/update.json"
+        private const val API_CONTENTS_URL =
+            "https://api.github.com/repos/Digi-Worm/xflix-tv/contents/update.json"
     }
 
     init {
@@ -105,6 +107,34 @@ class UpdateChecker(context: Context) {
     }
 
     private suspend fun fetchFromManifest(): GitHubReleaseInfo? {
+        // api.github.com is not CDN-cached the way raw.githubusercontent.com is.
+        // Raw ignored query-string cache busting, so a fresh push could take
+        // several minutes to appear; the contents API returns it immediately.
+        val sources = listOf(
+            "$API_CONTENTS_URL" to "application/vnd.github.raw+json",
+            "$MANIFEST_URL?cb=${System.currentTimeMillis()}" to "text/plain",
+        )
+        for ((url, accept) in sources) {
+            val body = httpGet(url, accept) ?: continue
+            try {
+                val manifest = json.decodeFromString<UpdateManifest>(body)
+                return GitHubReleaseInfo(
+                    versionCode = manifest.versionCode,
+                    tagName = manifest.versionName,
+                    name = manifest.versionName,
+                    body = manifest.notes,
+                    htmlUrl = manifest.apkUrl,
+                    publishedAt = manifest.publishedAt ?: "",
+                    downloadUrl = manifest.apkUrl
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("UpdateChecker", "bad manifest from $url", e)
+            }
+        }
+        return null
+    }
+
+    private fun httpGet(url: String, accept: String): String? {
         return try {
             val client = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
@@ -112,29 +142,15 @@ class UpdateChecker(context: Context) {
                 .build()
 
             val request = okhttp3.Request.Builder()
-                // raw.githubusercontent.com sits behind a CDN that caches for
-                // several minutes; a unique query string forces a fresh copy so a
-                // push is visible immediately instead of "tomorrow, maybe".
-                .url("$MANIFEST_URL?t=${System.currentTimeMillis() / 60_000}")
+                .url(url)
+                .header("Accept", accept)
                 .header("Cache-Control", "no-cache")
-                .header("Pragma", "no-cache")
+                .header("User-Agent", "DigiX-TV")
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) return null
-            val body = response.body?.string()
-            if (body.isNullOrBlank()) return null
-
-            val manifest = json.decodeFromString<UpdateManifest>(body)
-            GitHubReleaseInfo(
-                versionCode = manifest.versionCode,
-                tagName = manifest.versionName,
-                name = manifest.versionName,
-                body = manifest.notes,
-                htmlUrl = manifest.apkUrl,
-                publishedAt = manifest.publishedAt ?: "",
-                downloadUrl = manifest.apkUrl
-            )
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) response.body?.string() else null
+            }
         } catch (e: Exception) {
             null
         }
