@@ -200,7 +200,15 @@ class CastController(private val context: Context) {
             val target = discovery.probe(host)
             if (target == null) {
                 busy = false
-                error = "No Digi X TV answered at $host."
+                error = "No TV answered at $host. Check the address and that it is on " +
+                    "the same Wi-Fi."
+                return@launch
+            }
+            if (target.kind == CastKind.CHROMECAST) {
+                // Hand off rather than duplicating the Cast v2 path; it owns
+                // `busy` and `error` from here.
+                busy = false
+                castToChromecast(target, request)
                 return@launch
             }
             val ok = discovery.sendCast(target, request)

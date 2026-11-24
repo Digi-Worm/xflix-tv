@@ -336,7 +336,10 @@ private fun ScanningHint(m: UiMetrics) {
         )
         Spacer(Modifier.width(m.d(10.dp)))
         Text(
-            text = "Scanning for TVs running Digi X TV…",
+            // Names both protocols: the scan now probes Google Cast devices by
+            // address as well as NSD, so "Digi X TV only" was inaccurate and made
+            // a Cast-only network look like a failure.
+            text = "Scanning your Wi-Fi for TVs and Chromecast devices…",
             color = OnBg,
             fontSize = m.f(13f),
             fontWeight = FontWeight.Medium,

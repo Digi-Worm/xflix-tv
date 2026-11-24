@@ -12,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +33,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -665,6 +668,65 @@ fun BrandHeroBillboard(
     }
 }
 
+/**
+ * The one action button used everywhere a viewer starts playback.
+ *
+ * This exists because `androidx.tv.material3.Button` was used here before, and
+ * a TV button is not a touch button: it activates from a D-pad `KEYCODE_DPAD_CENTER`
+ * key event and has no `clickable` touch handling of its own. On a phone the
+ * Play button therefore rendered correctly, highlighted on press, and did
+ * nothing - the exact "Play button is not clickable on phone" report.
+ *
+ * A plain `Box` with `clickable` works for both input models: `clickable`
+ * handles touch *and* responds to the D-pad centre key when the node is
+ * focused, so the TV behaviour is preserved instead of traded away.
+ *
+ * `minimumInteractiveComponentSize` is deliberately not used: these sit in a
+ * cinematic hero row where 48dp of padding would break the composition. The
+ * content padding passed by each caller keeps the tap target tall enough.
+ */
+@Composable
+fun ActionPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color,
+    contentColor: Color,
+    shape: Shape = RoundedCornerShape(4.dp),
+    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+    content: @Composable RowScope.() -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale = animateFloatAsState(if (focused) 1.05f else 1f, tween(150), label = "pillScale")
+    // On a TV the fill brightens under the cursor, which is the only affordance
+    // a D-pad user gets. On touch there is no cursor, so the resting colour is
+    // used unchanged and the press ripple is the feedback.
+    val bg by animateColorAsState(
+        targetValue = if (focused) containerColor.copy(alpha = 0.86f) else containerColor,
+        animationSpec = tween(150),
+        label = "pillBg",
+    )
+
+    Box(
+        modifier = modifier
+            .focusScaleLayer(scale)
+            .clip(shape)
+            .background(bg)
+            .clickable(onClick = onClick)
+            .onFocusChanged { focused = it.isFocused }
+            .padding(contentPadding),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                content()
+            }
+        }
+    }
+}
+
 /** Play button: pure white background, bold black text, subtle scale on focus */
 @Composable
 fun BrandPlayButton(
@@ -672,38 +734,25 @@ fun BrandPlayButton(
     modifier: Modifier = Modifier,
     text: String = "Play",
 ) {
-    var focused by remember { mutableStateOf(false) }
-    val scale = animateFloatAsState(if (focused) 1.05f else 1f, tween(150), label = "playScale")
-
-    androidx.tv.material3.Button(
+    ActionPill(
         onClick = onClick,
-        modifier = modifier
-            .focusScaleLayer(scale)
-            .onFocusChanged { focused = it.isFocused },
-        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(4.dp)),
-        colors = androidx.tv.material3.ButtonDefaults.colors(
-            containerColor = Color.White,
-            contentColor = Color.Black,
-            focusedContainerColor = Color.White,
-            focusedContentColor = Color.Black,
-        ),
+        modifier = modifier,
+        containerColor = Color.White,
+        contentColor = Color.Black,
+        shape = RoundedCornerShape(4.dp),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(24.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = text,
-                color = Color.Black,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -714,38 +763,25 @@ fun BrandInfoButton(
     modifier: Modifier = Modifier,
     text: String = "More Info",
 ) {
-    var focused by remember { mutableStateOf(false) }
-    val scale = animateFloatAsState(if (focused) 1.05f else 1f, tween(150), label = "infoScale")
-
-    androidx.tv.material3.Button(
+    ActionPill(
         onClick = onClick,
-        modifier = modifier
-            .focusScaleLayer(scale)
-            .onFocusChanged { focused = it.isFocused },
-        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(4.dp)),
-        colors = androidx.tv.material3.ButtonDefaults.colors(
-            containerColor = Color(0x66FFFFFF),
-            contentColor = Color.White,
-            focusedContainerColor = Color(0x99FFFFFF),
-            focusedContentColor = Color.White,
-        ),
+        modifier = modifier,
+        containerColor = Color(0x66FFFFFF),
+        contentColor = Color.White,
+        shape = RoundedCornerShape(4.dp),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

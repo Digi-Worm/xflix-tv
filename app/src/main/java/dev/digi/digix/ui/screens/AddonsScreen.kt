@@ -17,10 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
-import androidx.tv.material3.Card
-import androidx.tv.material3.CardDefaults
 import dev.digi.digix.ui.theme.*
 
 @Composable
@@ -63,7 +59,7 @@ fun AddonsScreen(
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = m.f(13f)),
                 modifier = Modifier.weight(1f),
             )
-            Button(
+            androidx.compose.material3.Button(
                 onClick = {
                     if (url.isNotBlank()) {
                         status = "Installing…"
@@ -73,12 +69,11 @@ fun AddonsScreen(
                         }
                     }
                 },
-                shape = ButtonDefaults.shape(RoundedCornerShape(50)),
-                colors = ButtonDefaults.colors(
+                shape = RoundedCornerShape(50),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = Accent,
                     contentColor = OnAccent,
-                    focusedContainerColor = Accent,
-                    focusedContentColor = OnAccent,
                 ),
             ) {
                 Text("Install", fontWeight = FontWeight.SemiBold, fontSize = m.f(13f))
@@ -122,14 +117,15 @@ fun AddonsScreen(
 private fun AddonRow(addon: String, onRemove: (String) -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val m = uiMetrics()
-    Card(
+    // Material3 Surface with onClick: the tv.material3.Card here only activated
+    // from a D-pad, so taps did nothing on a phone.
+    androidx.compose.material3.Surface(
         onClick = { },
         modifier = Modifier
             .fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused }
-            .then(if (focused) Modifier else Modifier),
-        shape = CardDefaults.shape(RoundedCornerShape(m.d(TvDimens.corner))),
-        colors = CardDefaults.colors(containerColor = if (focused) SurfaceFocused else Surface),
+            .onFocusChanged { focused = it.isFocused },
+        shape = RoundedCornerShape(m.d(TvDimens.corner)),
+        color = if (focused) SurfaceFocused else Surface,
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = m.d(16.dp), vertical = m.d(12.dp)),
@@ -151,14 +147,13 @@ private fun AddonRow(addon: String, onRemove: (String) -> Unit) {
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(m.d(12.dp)))
-            Button(
+            androidx.compose.material3.Button(
                 onClick = { onRemove(addon) },
-                shape = ButtonDefaults.shape(RoundedCornerShape(50)),
-                colors = ButtonDefaults.colors(
+                shape = RoundedCornerShape(50),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = SurfaceHigh,
                     contentColor = OnBg,
-                    focusedContainerColor = Color(0xFFE8E8E8),
-                    focusedContentColor = OnAccent,
                 ),
             ) {
                 Text("Remove", fontSize = m.f(11f))

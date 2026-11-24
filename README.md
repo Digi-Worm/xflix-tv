@@ -24,7 +24,7 @@ GET  {addon}/subtitles/{type}/{id}.json         -> { "subtitles": [...] }
 **v2.1.0 features:**
 - Native Android TV UI with Jetpack Compose for TV
 - Built-in libtorrent engine for `infoHash` streaming
-- Full LAN casting (active subnet scan + mDNS/NSD + HTTP endpoints)
+- Full LAN casting (active subnet scan + Cast setup scan + mDNS/NSD + HTTP endpoints)
 - Phone/tablet compatibility (auto-rotates)
 - Compact two-row player deck (~15% of frame)
 
@@ -157,6 +157,24 @@ and why Android reported a downgrade as an invalid package.
 
 Two protocols are supported, and the picker marks which one each device uses.
 
+**Discovery does not depend on mDNS.** This is the fix for "the phone can't see
+any TV". mDNS is the documented mechanism, but it is also the least reliable
+part of Android networking: many access points filter multicast, some Wi-Fi
+drivers disable it in power save, and `NsdManager` is missing or broken on a
+fair number of phones. Discovery therefore runs three probes concurrently:
+
+| Path | Port | Endpoint | Catches |
+|---|---|---|---|
+| Digi X TV scan | 47823 | `GET /health` | our own receiver, by address |
+| Cast setup scan | 8008 | `GET /setup/eureka_info` | every Chromecast / Cast TV, by address |
+| mDNS / NSD | — | `_digixtv._tcp.`, `_googlecast._tcp.` | cross-subnet, and device display names |
+
+The two address scans are what make it behave like any other casting app: they
+need no multicast at all, so a phone whose mDNS is dead still sees the TV. The
+Cast probe gets its own 1.2 s budget rather than the 400 ms used for `/health`,
+because a Cast receiver's embedded web server answers slower and the tighter
+window was making real TVs intermittently absent.
+
 **Digi X TV** (`_digixtv._tcp.`, port 47823) — the phone sends a stream
 *descriptor*; the TV resolves it itself through its own torrent engine, so
 playback continues after the phone leaves the room or locks.
@@ -181,6 +199,30 @@ by the device before it discovers it cannot play the media, so returning on send
 would have reported broken casts as successful.
 
 **AirPlay is not supported.** There is no public sender protocol or SDK.
+
+### Why the Play button did nothing on a phone
+
+Two independent faults stacked up, and either one alone produced the same
+symptom.
+
+**Wrong button type.** Play, "More Info" and "My List" were
+`androidx.tv.material3.Button`, and the stream rows were `androidx.tv.material3.Card`.
+Those components activate from a D-pad `KEYCODE_DPAD_CENTER` key event; they have
+no `clickable` touch handling of their own. On a phone the button rendered
+correctly and highlighted on press, but the tap went nowhere. They now all use
+`ActionPill` (a `Box` with `clickable`), which handles touch *and* still responds
+to the D-pad centre key when focused, so TV behaviour is preserved rather than
+traded away.
+
+**Clipped hit box.** The hero was `Box(height = backdropHeight)` inside a
+`LazyColumn` item. Inside a lazy item the incoming max height is infinite, so
+`maxHeight * 0.5f` was `Infinity` and `coerceIn` pinned it to the 420dp ceiling
+on every device. The title, wrapped chips, four-line synopsis and the action row
+are taller than that in portrait, and the row is `align(BottomStart)`, so it grew
+*upward out of* the Box. A parent does not hit-test children drawn outside its
+bounds — the button was visible and unclickable. The hero now uses
+`heightIn(min = …)`, sized from the configuration's screen height instead of the
+infinite parent, so it grows to fit its content.
 
 ---
 
@@ -207,8 +249,10 @@ vary widely in reported density.
 - `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`
 - No Google account, no network login
 - WiFi connection required for casting
-- Phone and TV must be on the same network. The phone finds TVs two ways at
+- Phone and TV must be on the same network. The phone finds TVs three ways at
   once: a direct scan of the local /24 on the cast port (`GET /health`, results
-  in ~2 s) and mDNS/NSD, which also covers the case where the TV sits on a
-  different subnet and the router lets multicast through. Manual address entry
-  remains the fallback for isolated guest networks.
+  in ~2 s), a direct scan of the same /24 on **port 8008** (`GET
+  /setup/eureka_info`, which every Google Cast device serves), and mDNS/NSD,
+  which also covers the case where the TV sits on a different subnet and the
+  router lets multicast through. Manual address entry remains the fallback for
+  isolated guest networks, and now recognises both Digi X TVs and Cast devices.

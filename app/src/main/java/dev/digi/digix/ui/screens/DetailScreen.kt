@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -386,19 +387,33 @@ private fun Backdrop(
     onCast: (() -> Unit)? = null,
     onToggleLibrary: (dev.digi.digix.data.Meta) -> Unit = {},
 ) {
-    // The backdrop was a fixed 420dp, which is more than half a phone's portrait
-    // viewport and pushed the actions off the first screen. It now takes a share
-    // of the available height instead, and drops the poster on narrow screens
-    // where the poster column would squeeze the title into a sliver.
+    // Hero height is a share of the *screen*, not of the parent.
+    //
+    // This used to read `maxHeight` from BoxWithConstraints, but this composable
+    // is the content of a LazyColumn item, where the incoming max height is
+    // infinite. `maxHeight * 0.5f` was therefore Infinity, and `coerceIn` pinned
+    // it at the ceiling every time - 420dp on a phone regardless of the panel.
+    // The configuration's screen height is the real viewport, so the hero keeps
+    // its cinematic crop and still leaves room for the action row.
     val m = uiMetrics()
+    val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
     BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val available = minOf(maxHeight, screenHeightDp)
         val backdropHeight = if (m.isPortrait) {
-            (maxHeight * 0.5f).coerceIn(260.dp, 420.dp)
+            (available * 0.5f).coerceIn(260.dp, 420.dp)
         } else {
-            (maxHeight * 0.66f).coerceIn(300.dp, 460.dp)
+            (available * 0.66f).coerceIn(300.dp, 460.dp)
         }
         val showPoster = maxWidth >= m.d(520.dp)
-    Box(Modifier.fillMaxWidth().height(backdropHeight)) {
+    // heightIn(min = …), not height(…).
+    //
+    // The title, wrapped chips, four-line synopsis and the action row together
+    // are taller than the cinematic crop on a portrait phone. With a fixed
+    // height the row - which is `align(BottomStart)` - grew upward *out of* the
+    // Box, and a parent does not hit-test children drawn outside its bounds, so
+    // the Play button was visible but unclickable. A minimum height keeps the
+    // crop while letting the hero grow to fit whatever it holds.
+    Box(Modifier.fillMaxWidth().heightIn(min = backdropHeight)) {
         AsyncImage(
             model = meta.background ?: meta.poster,
             contentDescription = meta.name,
@@ -495,78 +510,71 @@ private fun Backdrop(
 
                 Spacer(Modifier.height(m.d(14.dp)))
 
-                // Action buttons
+                // Action buttons.
+                //
+                // These were `androidx.tv.material3.Button`, which activates on a
+                // D-pad centre key and has no touch handling - so on a phone the
+                // Play button looked right and did nothing. ActionPill handles
+                // both input models. See its doc for the full reasoning.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.tv.material3.Button(
+                    ActionPill(
                         onClick = onPlay,
                         modifier = Modifier.focusRequester(playFocus),
-                        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(m.d(6.dp))),
-                        colors = androidx.tv.material3.ButtonDefaults.colors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black,
-                            focusedContainerColor = Color.White,
-                            focusedContentColor = Color.Black,
-                        ),
+                        containerColor = Color.White,
+                        contentColor = Color.Black,
+                        shape = RoundedCornerShape(m.d(6.dp)),
                         contentPadding = PaddingValues(horizontal = m.d(22.dp), vertical = m.d(10.dp)),
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (isAutoPlayPending) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    color = Color.Black,
-                                    modifier = Modifier.size(m.d(18.dp)),
-                                    strokeWidth = m.d(2.dp),
-                                )
-                                Spacer(Modifier.width(m.d(7.dp)))
-                                Text(
-                                    "Starting…",
-                                    color = Color.Black,
-                                    fontSize = m.f(14f),
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(m.d(21.dp)),
-                                )
-                                Spacer(Modifier.width(m.d(5.dp)))
-                                Text(
-                                    if (resumeMs > 60_000) "Resume ${shortClock(resumeMs)}" else "Play",
-                                    color = Color.Black,
-                                    fontSize = m.f(14f),
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.width(m.d(11.dp)))
-                    androidx.tv.material3.Button(
-                        onClick = { meta?.let(onToggleLibrary) },
-                        shape = androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(m.d(6.dp))),
-                        colors = androidx.tv.material3.ButtonDefaults.colors(
-                            containerColor = Color(0x66FFFFFF),
-                            contentColor = OnBg,
-                            focusedContainerColor = Color(0x99FFFFFF),
-                            focusedContentColor = Color.White,
-                        ),
-                        contentPadding = PaddingValues(horizontal = m.d(17.dp), vertical = m.d(10.dp)),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                tint = Color.White,
+                        if (isAutoPlayPending) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                color = Color.Black,
                                 modifier = Modifier.size(m.d(18.dp)),
+                                strokeWidth = m.d(2.dp),
+                            )
+                            Spacer(Modifier.width(m.d(7.dp)))
+                            Text(
+                                "Starting…",
+                                color = Color.Black,
+                                fontSize = m.f(14f),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(m.d(21.dp)),
                             )
                             Spacer(Modifier.width(m.d(5.dp)))
                             Text(
-                                "My List",
-                                color = Color.White,
-                                fontSize = m.f(13f),
-                                fontWeight = FontWeight.SemiBold,
+                                if (resumeMs > 60_000) "Resume ${shortClock(resumeMs)}" else "Play",
+                                color = Color.Black,
+                                fontSize = m.f(14f),
+                                fontWeight = FontWeight.Bold,
                             )
                         }
+                    }
+                    Spacer(Modifier.width(m.d(11.dp)))
+                    ActionPill(
+                        onClick = { meta?.let(onToggleLibrary) },
+                        containerColor = Color(0x66FFFFFF),
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(m.d(6.dp)),
+                        contentPadding = PaddingValues(horizontal = m.d(17.dp), vertical = m.d(10.dp)),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(m.d(18.dp)),
+                        )
+                        Spacer(Modifier.width(m.d(5.dp)))
+                        Text(
+                            "My List",
+                            color = Color.White,
+                            fontSize = m.f(13f),
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     }
                     // Casting is a phone affordance: on a TV there is nothing to
                     // cast to, so the callback is simply absent there.
@@ -820,13 +828,14 @@ private fun StreamRow(
         .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
         .onFocusChanged { focused = it.isFocused }
 
-    androidx.tv.material3.Card(
+    // A tv.material3.Card only activates from the D-pad, so a tap on a phone did
+    // nothing. A clickable Surface behaves identically for a remote and also
+    // takes touch input.
+    androidx.compose.material3.Surface(
         onClick = { onPlay(stream) },
         modifier = modifier,
-        shape = androidx.tv.material3.CardDefaults.shape(RoundedCornerShape(TvDimens.corner)),
-        colors = androidx.tv.material3.CardDefaults.colors(
-            containerColor = if (focused) SurfaceFocused else Surface,
-        ),
+        shape = RoundedCornerShape(TvDimens.corner),
+        color = if (focused) SurfaceFocused else Surface,
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 13.dp),

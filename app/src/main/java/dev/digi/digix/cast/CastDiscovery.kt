@@ -413,12 +413,83 @@ class CastDiscovery(private val context: Context) {
             Log.d(TAG, "extended scan on ports $extended found $found")
         }
 
+        // Phase 3: Chromecast, by address rather than by mDNS.
+        //
+        // mDNS is the documented way to find Cast devices and it is what the
+        // picker used to rely on exclusively - but it is also the least reliable
+        // part of Android networking: multicast is filtered by many access
+        // points, disabled on some Wi-Fi drivers, and NSD is missing or broken
+        // on a fair number of phones. That is exactly the "no TV to cast to"
+        // report. Every Cast device answers a plain HTTP GET on 8008, so the
+        // subnet is probed directly and mDNS is treated as a bonus.
+        val chromecasts = scanChromecasts(hosts)
+        Log.d(TAG, "chromecast scan found $chromecasts")
+
         Log.d(
             TAG,
-            "subnet scan $prefix.0/24: $found device(s) in " +
+            "subnet scan $prefix.0/24: digix=$found chromecast=$chromecasts in " +
                 "${SystemClock.elapsedRealtime() - started} ms"
         )
         pruneStale()
+    }
+
+    /**
+     * Find Cast devices by probing `/setup/eureka_info` on port 8008.
+     *
+     * This is the same unauthenticated endpoint the Google Home app uses during
+     * setup, and every Chromecast / Cast-enabled TV / Google TV device serves it
+     * on the LAN. Using it means discovery does not depend on mDNS at all.
+     *
+     * Deliberately a *separate* sweep from the Digi X TV one: the two use
+     * different ports and different response shapes, and folding them together
+     * would make a failure in one look like a failure in both.
+     */
+    private suspend fun scanChromecasts(hosts: List<String>): Int {
+        val semaphore = Semaphore(SCAN_CONCURRENCY)
+        val found = AtomicInteger(0)
+
+        coroutineScope {
+            for (host in hosts) {
+                launch(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        val target = probeChromecast(host)
+                        if (target != null) {
+                            found.incrementAndGet()
+                            registerScanned(target)
+                        }
+                    }
+                }
+            }
+        }
+        return found.get()
+    }
+
+    /**
+     * Ask one host if it is a Cast device.
+     *
+     * Only a 200 carrying a `name` field counts. A random web server on 8008 will
+     * not answer this path with that shape, so the check stays honest instead of
+     * filling the picker with false positives.
+     */
+    private suspend fun probeChromecast(host: String): CastTarget? {
+        return try {
+            val body = httpGetScan(
+                "http://$host:$CHROMECAST_INFO_PORT/setup/eureka_info",
+                scanInfoHttp,
+            ) ?: return null
+            val json = runCatching { org.json.JSONObject(body) }.getOrNull() ?: return null
+            val name = json.optString("name").takeIf { it.isNotBlank() }
+                ?: json.optString("ssdp_udn").takeIf { it.isNotBlank() }
+                ?: return null
+            CastTarget(
+                name = name,
+                host = host,
+                port = ChromecastClient.CAST_V2_PORT,
+                kind = dev.digi.digix.data.CastKind.CHROMECAST,
+            )
+        } catch (t: Throwable) {
+            null
+        }
     }
 
     /**
@@ -482,10 +553,13 @@ class CastDiscovery(private val context: Context) {
      * waves and the sweep took ~10 s on a real TV. `enqueue` parks no thread, so
      * the whole /24 really is in flight at once and finishes in one timeout.
      */
-    private suspend fun httpGetScan(url: String): String? =
+    private suspend fun httpGetScan(url: String): String? = httpGetScan(url, scanHttp)
+
+    /** Same non-blocking GET against a specific client. */
+    private suspend fun httpGetScan(url: String, client: OkHttpClient): String? =
         kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
             val request = Request.Builder().url(url).get().build()
-            val call = scanHttp.newCall(request)
+            val call = client.newCall(request)
             continuation.invokeOnCancellation { runCatching { call.cancel() } }
             call.enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
@@ -695,24 +769,54 @@ class CastDiscovery(private val context: Context) {
             val (bareHost, resolvedPort) = splitHost(host, port)
             if (bareHost.isBlank()) return@withContext null
 
-            runCatching {
-                val request = Request.Builder()
-                    .url("http://${bracket(bareHost)}:$resolvedPort/health")
-                    .get()
-                    .build()
-                http.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@use null
-                    val body = response.body?.string().orEmpty()
-                    // Parsing the full health payload (a CastStatus carrying only
-                    // a device name) keeps the probe honest: a random web server
-                    // on the same port will not decode as one of our TVs.
-                    val name = runCatching {
-                        CastJson.decodeFromString(CastStatus.serializer(), body).deviceName
-                    }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@use null
-                    CastTarget(name = name, host = bareHost, port = resolvedPort)
-                }
-            }.getOrNull()
+            probeDigiX(bareHost, resolvedPort) ?: probeCastDevice(bareHost)
         }
+
+    /** Ask `host:port` for this app's `/health` payload. */
+    private fun probeDigiX(bareHost: String, port: Int): CastTarget? =
+        runCatching {
+            val request = Request.Builder()
+                .url("http://${bracket(bareHost)}:$port/health")
+                .get()
+                .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val body = response.body?.string().orEmpty()
+                // Parsing the full health payload (a CastStatus carrying only
+                // a device name) keeps the probe honest: a random web server
+                // on the same port will not decode as one of our TVs.
+                val name = runCatching {
+                    CastJson.decodeFromString(CastStatus.serializer(), body).deviceName
+                }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@use null
+                CastTarget(name = name, host = bareHost, port = port)
+            }
+        }.getOrNull()
+
+    /**
+     * Ask the Cast setup port who lives at [bareHost].
+     *
+     * Manual entry used to be Digi-X-TV-only, so typing a Chromecast's address
+     * always failed even though the device was sitting right there. Trying the
+     * Cast endpoint as a fallback makes "enter the address" work for both kinds.
+     */
+    private fun probeCastDevice(bareHost: String): CastTarget? = runCatching {
+        val request = Request.Builder()
+            .url("http://${bracket(bareHost)}:$CHROMECAST_INFO_PORT/setup/eureka_info")
+            .get()
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return@use null
+            val body = response.body?.string().orEmpty()
+            val json = org.json.JSONObject(body)
+            val name = json.optString("name").takeIf { it.isNotBlank() } ?: return@use null
+            CastTarget(
+                name = name,
+                host = bareHost,
+                port = ChromecastClient.CAST_V2_PORT,
+                kind = CastKind.CHROMECAST,
+            )
+        }
+    }.getOrNull()
 
     // --- Commands ----------------------------------------------------------
 
@@ -830,6 +934,16 @@ class CastDiscovery(private val context: Context) {
 
         const val SCAN_CONCURRENCY = 254
 
+        /**
+         * Budget for one Cast setup probe.
+         *
+         * Higher than [SCAN_TIMEOUT_MS] on purpose: a Cast receiver's embedded
+         * web server answers noticeably slower than our own `/health` endpoint,
+         * and the earlier 400 ms window is what made real Cast TVs intermittently
+         * invisible in the picker.
+         */
+        const val CHROMECAST_TIMEOUT_MS = 1_200L
+
         /** The receiver binds [CAST_DEFAULT_PORT] + 0..10, so match that range. */
         const val SCAN_PORT_ATTEMPTS = 3
 
@@ -840,6 +954,12 @@ class CastDiscovery(private val context: Context) {
          * is what makes a Chromecast (or a Cast-enabled TV) appear in the picker.
          */
         const val CHROMECAST_SERVICE_TYPE = "_googlecast._tcp."
+
+        /**
+         * Plain-HTTP setup port every Cast device serves `/setup/eureka_info` on.
+         * Used for the active scan so discovery does not depend on mDNS.
+         */
+        const val CHROMECAST_INFO_PORT = 8008
 
         val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 
@@ -856,6 +976,31 @@ class CastDiscovery(private val context: Context) {
             OkHttpClient.Builder()
                 .connectTimeout(SCAN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .readTimeout(SCAN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(false)
+                .dispatcher(
+                    okhttp3.Dispatcher().apply {
+                        maxRequests = SCAN_CONCURRENCY
+                        maxRequestsPerHost = SCAN_CONCURRENCY
+                    }
+                )
+                .build()
+        }
+
+        /**
+         * The Cast setup probe uses its own client.
+         *
+         * A Google Cast *receiver* is not our receiver: it runs a small embedded
+         * HTTP server that answers `/setup/eureka_info` after doing its own work,
+         * and on real hardware (a TCL Google TV) that took longer than the 400 ms
+         * our own `/health` endpoint needs. A timeout tuned for the cheap case
+         * made Cast TVs randomly absent from the picker, which is precisely the
+         * bug being fixed here - so this one gets a realistic budget instead of
+         * being squeezed to keep the sweep fast.
+         */
+        val scanInfoHttp: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(CHROMECAST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .readTimeout(CHROMECAST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .retryOnConnectionFailure(false)
                 .dispatcher(
                     okhttp3.Dispatcher().apply {
