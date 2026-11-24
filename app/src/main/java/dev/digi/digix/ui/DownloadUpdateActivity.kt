@@ -52,6 +52,11 @@ class DownloadUpdateActivity : ComponentActivity() {
             val downloadManager =
                 context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
+            // Guards the auto-install: the polling loop can observe SUCCESSFUL on
+            // more than one tick before it breaks, and launching the installer
+            // twice stacks two system prompts.
+            var installLaunched by remember { mutableStateOf(false) }
+
             fun startDownload() {
                 if (releaseUrl.isBlank()) {
                     failed = true
@@ -145,6 +150,19 @@ class DownloadUpdateActivity : ComponentActivity() {
                     context.startActivity(install)
                 } catch (e: Exception) {
                     Toast.makeText(context, "Cannot open installer: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            // One tap, then it runs itself: download starts on open and the
+            // installer is raised the moment the APK lands. The system "update
+            // this app?" dialog is still shown by Android and cannot be skipped.
+            LaunchedEffect(Unit) {
+                if (!isDownloading && !isComplete && !failed) startDownload()
+            }
+            LaunchedEffect(isComplete) {
+                if (isComplete && !installLaunched) {
+                    installLaunched = true
+                    installApk()
                 }
             }
 

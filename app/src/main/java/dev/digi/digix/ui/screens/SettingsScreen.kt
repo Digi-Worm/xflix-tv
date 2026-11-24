@@ -109,14 +109,18 @@ fun SettingsScreen(
 
         // Manual update check. Automatic checks run at most once a day, so this is
         // the path a user takes when they know a release just shipped.
-        val updateValue = when (val s = updateState) {
-            is UpdateState.Checking -> "Checking GitHub for a newer release…"
+        //
+        // Copy is deliberately generic: it states the verdict, not the transport.
+        // The old "Could not reach GitHub" wording was both unhelpful and often
+        // wrong - the failure was a main-thread network call, not a dead network.
+        val updateValue = when (updateState) {
+            is UpdateState.Checking -> "Checking for a new version…"
             is UpdateState.Available ->
-                "Version ${available?.tagName ?: "newer"} is available. Tap to download and install."
-            is UpdateState.UpToDate ->
-                "You are on the latest version (build ${dev.digi.digix.BuildConfig.VERSION_CODE})."
-            is UpdateState.Failed -> "Could not reach GitHub. Check the connection and retry."
-            is UpdateState.Idle -> "Tap to check for a newer version."
+                "A new version is available. Tap to download and install."
+            is UpdateState.UpToDate -> "You have the latest version."
+            is UpdateState.Failed ->
+                "Couldn't check for updates right now. Tap to try again."
+            is UpdateState.Idle -> "Tap to check for a new version."
         }
         ActionLine(
             title = "Check for updates",

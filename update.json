@@ -1,7 +1,7 @@
 {
-  "versionCode": 19,
+  "versionCode": 20,
   "versionName": "2.2.0",
-  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b19.apk",
-  "notes": "Fast cast discovery: active subnet scan plus multicast lock, TVs found in ~2s. Reliable manual update check.",
-  "publishedAt": "2026-11-24T23:30:00Z"
+  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b20.apk",
+  "notes": "Fix manual update check failing on phones, one-tap download and install, fast cast discovery.",
+  "publishedAt": "2026-11-25T00:30:00Z"
 }

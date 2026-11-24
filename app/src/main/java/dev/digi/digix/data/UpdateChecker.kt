@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
 
@@ -30,6 +31,19 @@ class UpdateChecker(context: Context) {
     private val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * One client for every manifest/release call. Rebuilding it per request
+     * created a new connection pool and thread pool each time, which is both
+     * wasteful and meant a stale pool could linger after a failed check.
+     */
+    private val http: okhttp3.OkHttpClient by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
 
     private val _hasUpdate = MutableStateFlow(false)
     val hasUpdate: StateFlow<Boolean> = _hasUpdate.asStateFlow()
@@ -70,48 +84,56 @@ class UpdateChecker(context: Context) {
         _state.value = UpdateState.Checking
 
         try {
-            val currentTime = System.currentTimeMillis()
-            val lastCheckTime = prefs.getLong(PREF_LAST_CHECK, 0)
-            val timeSinceLastCheck = currentTime - lastCheckTime
+            // Force the network work onto IO. The Settings button calls this from
+            // rememberCoroutineScope(), which is bound to the main thread, and the
+            // HTTP client below blocks; without this, the manual check threw
+            // NetworkOnMainThreadException, the catch turned it into a null
+            // release, and the UI claimed it could not reach GitHub - while the
+            // launch check (already on IO) worked fine.
+            withContext(Dispatchers.IO) {
+                val currentTime = System.currentTimeMillis()
+                val lastCheckTime = prefs.getLong(PREF_LAST_CHECK, 0)
+                val timeSinceLastCheck = currentTime - lastCheckTime
 
-            if (!force && timeSinceLastCheck < TimeUnit.DAYS.toMillis(1)) {
-                _isChecking.value = false
-                // Restore the verdict from the previous check instead of leaving
-                // the row on Idle, otherwise a gated check would silently drop
-                // the "Update now" action the user already saw.
-                _state.value = if (_hasUpdate.value) UpdateState.Available else UpdateState.UpToDate
-                return
-            }
-
-            val release = fetchLatestRelease()
-            android.util.Log.i("UpdateChecker", "manifest fetch result: $release")
-            if (release == null) {
-                _state.value = UpdateState.Failed
-            } else {
-                // Compare against what is installed *now*, read from the package
-                // manager. The stored pref is written by the previous build, so a
-                // user who sideloads a newer APK would otherwise be compared
-                // against a stale number and told they are up to date.
-                val installedVersionCode = installedVersionCode()
-                val hasUpdate = release.versionCode > installedVersionCode
-                android.util.Log.i(
-                    "UpdateChecker",
-                    "installed=$installedVersionCode remote=${release.versionCode} hasUpdate=$hasUpdate"
-                )
-
-                _latestVersion.value = release.tagName
-                _hasUpdate.value = hasUpdate
-                _available.value = if (hasUpdate) release else null
-                _state.value = if (hasUpdate) UpdateState.Available else UpdateState.UpToDate
-
-                if (hasUpdate) {
-                    showNotification(release)
+                if (!force && timeSinceLastCheck < TimeUnit.DAYS.toMillis(1)) {
+                    // Restore the verdict from the previous check instead of
+                    // leaving the row on Idle, otherwise a gated check would
+                    // silently drop the "Update now" action the user already saw.
+                    _state.value =
+                        if (_hasUpdate.value) UpdateState.Available else UpdateState.UpToDate
+                    return@withContext
                 }
 
-                prefs.edit()
-                    .putLong(PREF_LAST_CHECK, currentTime)
-                    .putInt(PREF_VERSION_CODE, installedVersionCode)
-                    .apply()
+                val release = fetchLatestRelease()
+                android.util.Log.i("UpdateChecker", "manifest fetch result: $release")
+                if (release == null) {
+                    _state.value = UpdateState.Failed
+                } else {
+                    // Compare against what is installed *now*, read from the
+                    // package manager. The stored pref is written by the previous
+                    // build, so a user who sideloads a newer APK would otherwise
+                    // be compared against a stale number.
+                    val installed = installedVersionCode()
+                    val hasUpdate = release.versionCode > installed
+                    android.util.Log.i(
+                        "UpdateChecker",
+                        "installed=$installed remote=${release.versionCode} hasUpdate=$hasUpdate"
+                    )
+
+                    _latestVersion.value = release.tagName
+                    _hasUpdate.value = hasUpdate
+                    _available.value = if (hasUpdate) release else null
+                    _state.value = if (hasUpdate) UpdateState.Available else UpdateState.UpToDate
+
+                    if (hasUpdate) {
+                        showNotification(release)
+                    }
+
+                    prefs.edit()
+                        .putLong(PREF_LAST_CHECK, currentTime)
+                        .putInt(PREF_VERSION_CODE, installed)
+                        .apply()
+                }
             }
         } catch (e: Exception) {
             android.util.Log.w("UpdateChecker", "check failed", e)
@@ -174,11 +196,6 @@ class UpdateChecker(context: Context) {
 
     private fun httpGet(url: String, accept: String): String? {
         return try {
-            val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build()
-
             val request = okhttp3.Request.Builder()
                 .url(url)
                 .header("Accept", accept)
@@ -186,38 +203,48 @@ class UpdateChecker(context: Context) {
                 .header("User-Agent", "DigiX-TV")
                 .build()
 
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) response.body?.string() else null
+            http.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    response.body?.string()
+                } else {
+                    // 403 from the unauthenticated contents API means the
+                    // 60-requests/hour quota is gone; the raw URL is the fallback.
+                    android.util.Log.w("UpdateChecker", "HTTP ${response.code} for $url")
+                    null
+                }
             }
         } catch (e: Exception) {
+            // Never silent: a bare null here was what made a real failure look
+            // like "no update available".
+            android.util.Log.w("UpdateChecker", "GET failed for $url: ${e.javaClass.simpleName}: ${e.message}")
             null
         }
     }
 
     private suspend fun fetchFromReleasesApi(): GitHubReleaseInfo? {
         return try {
-            val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build()
-
             val request = okhttp3.Request.Builder()
                 .url("https://api.github.com/repos/Digi-Worm/xflix-tv/releases/latest")
                 .header("Accept", "application/vnd.github.v3+json")
+                .header("User-Agent", "DigiX-TV")
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string()
-                if (!body.isNullOrBlank()) {
-                    GitHubReleaseInfo.fromGitHubRelease(json.decodeFromString(body), 0)
-                } else {
-                    null
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    // 404 is expected: this repo publishes through update.json
+                    // rather than GitHub Releases, so there is no "latest".
+                    android.util.Log.d("UpdateChecker", "no release: HTTP ${response.code}")
+                    return null
                 }
-            } else {
-                null
+                val body = response.body?.string()
+                if (body.isNullOrBlank()) {
+                    null
+                } else {
+                    GitHubReleaseInfo.fromGitHubRelease(json.decodeFromString(body), 0)
+                }
             }
         } catch (e: Exception) {
+            android.util.Log.w("UpdateChecker", "release lookup failed", e)
             null
         }
     }
