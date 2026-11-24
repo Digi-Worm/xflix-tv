@@ -69,9 +69,14 @@ class UpdateChecker(context: Context) {
             }
 
             val release = fetchLatestRelease()
+            android.util.Log.i("UpdateChecker", "manifest fetch result: $release")
             if (release != null) {
                 val installedVersionCode = prefs.getInt(PREF_VERSION_CODE, 0)
                 val hasUpdate = release.versionCode > installedVersionCode
+                android.util.Log.i(
+                    "UpdateChecker",
+                    "installed=$installedVersionCode remote=${release.versionCode} hasUpdate=$hasUpdate"
+                )
 
                 _latestVersion.value = release.tagName
                 _hasUpdate.value = hasUpdate
@@ -85,7 +90,7 @@ class UpdateChecker(context: Context) {
                     .apply()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.w("UpdateChecker", "check failed", e)
         } finally {
             _isChecking.value = false
         }
