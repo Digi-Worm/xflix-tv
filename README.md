@@ -147,6 +147,24 @@ download and the app stayed on the old build no matter how many times you tapped
 That last check turns a silent no-op into a visible error, which is what would
 have caught the original bug instead of leaving you on the old version.
 
+`StorageJanitor` also removes `DigiX-TV-update*.apk` files older than ten minutes
+from the app's Downloads folder on every start and in the periodic sweep. Older
+builds left one ~46 MB installer per update — six of them on the dev TV — and the
+oldest was a build several versions behind, which is what the installer picked up
+and why Android reported a downgrade as an invalid package.
+
+### What casting does and does not do
+
+Cast discovery looks for exactly one service type, `_digixtv._tcp.`, plus a direct
+scan of the local `/24` on the receiver port. It finds other devices **running
+Digi X TV** — a phone, a TV, or a box.
+
+Chromecast and AirPlay are **not supported**. Those devices advertise
+`_googlecast._tcp.` and `_airplay._tcp.`, which this code never queries, so they
+will never appear in the picker. Adding Chromecast would mean the Cast SDK plus a
+registered receiver app ID; AirPlay has no official sender SDK. The cast sheet
+says so explicitly rather than implying support it does not have.
+
 ---
 
 ## Layout reference

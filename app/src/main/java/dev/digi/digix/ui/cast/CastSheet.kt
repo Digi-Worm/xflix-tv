@@ -187,6 +187,20 @@ fun CastSheet(
                     fontSize = m.f(12f),
                     lineHeight = m.f(17f),
                 )
+                Spacer(Modifier.height(m.d(10.dp)))
+                Text(
+                    // Be explicit about what this actually searches for. Discovery
+                    // only knows the Digi X TV receiver protocol
+                    // (_digixtv._tcp.), so a Chromecast or Apple TV is invisible
+                    // here by design. Saying so avoids the "my cast devices never
+                    // show up" report, which was really a wrong expectation.
+                    text = "Finds devices running Digi X TV. Chromecast and AirPlay " +
+                        "devices are not supported — use their own app or the " +
+                        "Google Home app for those.",
+                    color = MutedDim,
+                    fontSize = m.f(11f),
+                    lineHeight = m.f(16f),
+                )
                 Spacer(Modifier.height(m.d(16.dp)))
 
                 if (castingTo != null) {
@@ -323,7 +337,7 @@ private fun ScanningHint(m: UiMetrics) {
         )
         Spacer(Modifier.width(m.d(10.dp)))
         Text(
-            text = "Scanning for TVs…",
+            text = "Scanning for TVs running Digi X TV…",
             color = OnBg,
             fontSize = m.f(13f),
             fontWeight = FontWeight.Medium,
@@ -336,7 +350,8 @@ private fun ScanningHint(m: UiMetrics) {
         // The app scans the local subnet directly as well as using mDNS, so a
         // same-subnet TV should appear within a couple of seconds.
         text = "Scanning your Wi-Fi for TVs. Both devices must be on the same " +
-            "network. If your TV still never appears, enter its address below.",
+            "network. If your TV still never appears, enter its address below. " +
+            "Only devices running Digi X TV are discoverable here.",
         color = Muted,
         fontSize = m.f(11f),
         lineHeight = m.f(16f),

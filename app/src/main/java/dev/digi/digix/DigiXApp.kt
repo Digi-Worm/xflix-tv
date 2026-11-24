@@ -54,8 +54,12 @@ class DigiXApp : Application(), ImageLoaderFactory {
 
         // First sweep after start: clears residue from the previous session, then
         // settles into a slow periodic pass so a long binge never fills the box.
+        // Runs almost immediately because the leftover self-update installers are
+        // a correctness problem, not just wasted space: a stale APK is what the
+        // installer used to pick up, which produced a downgrade and the system's
+        // "package appears to be invalid" dialog.
         appScope.launch {
-            delay(4_000)
+            delay(1_200)
             StorageJanitor.sweep(this@DigiXApp)
         }
         appScope.launch {

@@ -3,6 +3,7 @@ package dev.digi.digix.data
 import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import coil.Coil
 import dev.digi.digix.DigiXApp
@@ -42,6 +43,13 @@ object StorageJanitor {
 
     /** Coil's image cache is capped at 192 MB; reclaim well before that. */
     private const val IMAGE_CACHE_SOFT_LIMIT = 96L * 1024 * 1024
+
+    /**
+     * Age after which a downloaded update APK is considered abandoned. Ten
+     * minutes is comfortably longer than a 46 MB download plus the time a user
+     * needs to confirm the system install dialog.
+     */
+    private const val UPDATE_INSTALLER_GRACE_MS = 10L * 60 * 1000
 
     private val sweeping = AtomicBoolean(false)
 
@@ -85,10 +93,11 @@ object StorageJanitor {
                 val freedTorrent = pruneTorrents(context, aggressive)
                 val freedImages = pruneImageCache(context, aggressive)
                 val freedCode = pruneCodeCache(context)
+                val freedUpdates = pruneUpdateInstallers(context)
 
                 if (aggressive) trimMemory(context)
 
-                val total = freedTorrent + freedImages + freedCode
+                val total = freedTorrent + freedImages + freedCode + freedUpdates
                 if (total > 0) {
                     Log.i(TAG, "reclaimed ${total / 1024} KB (aggressive=$aggressive)")
                 }
@@ -156,6 +165,41 @@ object StorageJanitor {
             if (dir.exists()) {
                 freed += dirSize(dir)
                 runCatching { dir.listFiles()?.forEach { it.deleteRecursively() } }
+            }
+        }
+        return freed
+    }
+
+    /**
+     * Deletes APKs left behind by the self-update flow.
+     *
+     * DownloadManager never overwrites a destination, so it saves alongside it as
+     * `name-1.apk`, `name-2.apk`. Before the filename carried the build number,
+     * every update left another ~46 MB installer in
+     * `Android/data/.../files/Download/` - on the TV there were six of them,
+     * 280 MB, the oldest being a build four versions behind the installed one.
+     *
+     * That stale file is what the installer picked up, producing a downgrade and
+     * the opaque "package appears to be invalid" dialog. Removing them is
+     * therefore a correctness fix, not just housekeeping.
+     *
+     * Files touched in the last [UPDATE_INSTALLER_GRACE_MS] are left alone so a
+     * download that is still running or about to be installed is never deleted
+     * out from under the installer.
+     */
+    private fun pruneUpdateInstallers(context: Context): Long {
+        val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return 0L
+        val files = dir.listFiles() ?: return 0L
+        val cutoff = System.currentTimeMillis() - UPDATE_INSTALLER_GRACE_MS
+        var freed = 0L
+        files.forEach { file ->
+            if (!file.isFile) return@forEach
+            if (!file.name.startsWith("DigiX-TV-update") || file.extension != "apk") return@forEach
+            if (file.lastModified() > cutoff) return@forEach
+            val size = file.length()
+            if (runCatching { file.delete() }.getOrDefault(false)) {
+                freed += size
+                Log.i(TAG, "removed stale installer ${file.name}")
             }
         }
         return freed
