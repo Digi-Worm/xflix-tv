@@ -118,6 +118,9 @@ class DownloadUpdateActivity : ComponentActivity() {
                     failed = false
                     failureText = null
                     progress = 0
+                    // Re-arm the auto-installer: a retry after a failed or rejected
+                    // download must be able to raise the installer again.
+                    installLaunched = false
 
                     lifecycleScope.launch {
                         while (true) {
