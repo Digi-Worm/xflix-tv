@@ -34,6 +34,17 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
+ * The versionCode currently installed for this package, or 0 if it cannot be read.
+ *
+ * Used to reject a downgrade before the system installer shows its opaque
+ * "package appears to be invalid" dialog.
+ */
+private fun installedVersionCode(context: Context): Int = runCatching {
+    @Suppress("DEPRECATION")
+    context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+}.getOrDefault(0)
+
+/**
  * Activity to download the latest APK from GitHub and hand it to the installer.
  */
 class DownloadUpdateActivity : ComponentActivity() {
@@ -190,6 +201,7 @@ class DownloadUpdateActivity : ComponentActivity() {
                 // the installer. This is the check that would have caught the
                 // stale-file bug above instead of silently reinstalling the same
                 // version and looking like nothing happened.
+                val installedCode = installedVersionCode(context)
                 if (targetVersionCode > 0) {
                     val info = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
                     @Suppress("DEPRECATION")
@@ -201,6 +213,28 @@ class DownloadUpdateActivity : ComponentActivity() {
                         failureText =
                             "Downloaded build ${if (actual > 0) actual else "unknown"} " +
                                 "instead of $targetVersionCode. Tap retry."
+                        return
+                    }
+                    // A downgrade is rejected by the system with the opaque
+                    // "package appears to be invalid" dialog, so refuse it here
+                    // with something a user can actually act on. This is exactly
+                    // what a stale file produced: b18 handed to a b21 install.
+                    if (actual < installedCode) {
+                        runCatching { file.delete() }
+                        isComplete = false
+                        failed = true
+                        failureText =
+                            "The download is build $actual but this device already " +
+                                "runs build $installedCode, so the installer would " +
+                                "reject it. Tap retry to fetch build $targetVersionCode again."
+                        return
+                    }
+                    if (actual == installedCode) {
+                        isComplete = false
+                        failed = true
+                        failureText =
+                            "Build $actual is already installed. Close this screen and " +
+                                "check for updates again."
                         return
                     }
                 }
@@ -252,9 +286,26 @@ class DownloadUpdateActivity : ComponentActivity() {
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.SemiBold
                         )
+                        // Name both ends of the update. The old copy said only
+                        // "a new version", so on a TV you could not tell what you
+                        // were installing or from where.
                         Text(
-                            "Digi X TV $releaseName is ready to download. Downloading it " +
-                                "will replace the installed version once you confirm the install.",
+                            buildString {
+                                append("Digi X TV ")
+                                append(if (releaseName.isNotBlank()) releaseName else "update")
+                                if (targetVersionCode > 0) {
+                                    append(" (build ")
+                                    append(targetVersionCode)
+                                    append(")")
+                                }
+                                val installed = installedVersionCode(context)
+                                if (installed > 0) {
+                                    append("\n\nInstalled: build ")
+                                    append(installed)
+                                    append("  →  New: build ")
+                                    append(targetVersionCode)
+                                }
+                            },
                             color = Color.White.copy(alpha = 0.78f),
                             style = MaterialTheme.typography.bodyMedium
                         )

@@ -1113,6 +1113,10 @@ fun PlayerScreen(
                     player = exoPlayer
                     useController = false
                     keepScreenOn = true
+                    // The controller is off, but PlayerView still installs a touch
+                    // listener that swallows taps, which is why tapping the picture
+                    // on a phone never revealed the deck. The transparent overlay
+                    // below handles touch instead.
                     setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                     resizeMode = ASPECT_MODES[aspectIndex].first
                 }
@@ -1120,10 +1124,20 @@ fun PlayerScreen(
             update = { view ->
                 view.resizeMode = ASPECT_MODES[aspectIndex].first
             },
-            // On a phone there is no key event to reveal the deck, so tapping the
-            // picture is the only way in. On a TV this is harmless: the remote
-            // still drives everything and the tap handler simply never fires.
-            modifier = Modifier
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // Touch target for phones.
+        //
+        // This must be a sibling drawn *over* the AndroidView, not a modifier on
+        // it: PlayerView is a real Android view that consumes touch events, so a
+        // `pointerInput` attached to the AndroidView's Compose modifier never saw
+        // the tap. Sitting on top of it, this layer receives the tap first.
+        //
+        // Deliberately transparent and without semantics, so it costs nothing on
+        // a TV where only the remote is used.
+        Box(
+            Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(

@@ -120,11 +120,26 @@ fun SettingsScreen(
         // Copy is deliberately generic: it states the verdict, not the transport.
         // The old "Could not reach GitHub" wording was both unhelpful and often
         // wrong - the failure was a main-thread network call, not a dead network.
-        val updateValue = when (updateState) {
+        val updateValue = when (val s = updateState) {
             is UpdateState.Checking -> "Checking for a new version…"
-            is UpdateState.Available ->
-                "A new version is available. Tap to download and install."
-            is UpdateState.UpToDate -> "You have the latest version."
+            is UpdateState.Available -> {
+                // Name the build you are moving to. "A new version" alone left no
+                // way to tell what would actually be installed.
+                val target = available?.versionCode ?: 0
+                val name = available?.tagName?.takeIf { it.isNotBlank() }
+                buildString {
+                    append("Version ")
+                    append(name ?: "newer")
+                    if (target > 0) {
+                        append(" (build ")
+                        append(target)
+                        append(")")
+                    }
+                    append(" is available. Tap to download and install.")
+                }
+            }
+            is UpdateState.UpToDate ->
+                "You have the latest version (build ${dev.digi.digix.BuildConfig.VERSION_CODE})."
             is UpdateState.Failed ->
                 "Couldn't check for updates right now. Tap to try again."
             is UpdateState.Idle -> "Tap to check for a new version."

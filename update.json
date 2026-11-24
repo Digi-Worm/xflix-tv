@@ -1,7 +1,7 @@
 {
-  "versionCode": 24,
+  "versionCode": 25,
   "versionName": "2.2.0",
-  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b24.apk",
-  "notes": "Fix updates reinstalling the old APK: unique download filenames, stale file cleanup, version check before install, and retry re-arms the installer.",
-  "publishedAt": "2026-11-25T03:20:00Z"
+  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b25.apk",
+  "notes": "Fix phone tap controls, show the version being installed, and block downgrade installs that appear as an invalid package.",
+  "publishedAt": "2026-11-25T04:10:00Z"
 }
