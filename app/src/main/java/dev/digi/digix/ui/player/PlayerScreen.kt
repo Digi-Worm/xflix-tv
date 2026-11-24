@@ -1221,7 +1221,8 @@ fun PlayerScreen(
                 Modifier
                     .size(88.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Color.Black.copy(alpha = 0.55f)),
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { exoPlayer.play() },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(44.dp))
