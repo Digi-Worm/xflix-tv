@@ -98,23 +98,26 @@ PowerShell prints a misleading `Exit code: 1` even on success. Trust the
 
 ## Automatic updates
 
-The app checks `api.github.com/repos/Digi-Worm/xflix-tv/releases/latest` once per
-day and compares the release tag against the installed `versionCode`. When a
-newer release exists it posts a notification with a **Download** action that
-opens `DownloadUpdateActivity`, fetches the APK, and hands it to the system
-installer.
+The app checks `raw.githubusercontent.com/Digi-Worm/xflix-tv/main/update.json`
+once per day and compares `versionCode` with the installed one. When a newer
+version exists it posts a notification with a **Download** action that opens
+`DownloadUpdateActivity`, fetches the APK, and hands it to the system installer.
+If `update.json` is missing it falls back to the GitHub releases API.
 
-Android forbids silent self-updates, so the last step is always the system's own
-"update this app?" prompt. To make that flow work:
+**The repository must be public.** Raw files and the releases API are read
+anonymously by the app; on a private repo they return 404 and no update is ever
+detected. Toggle it under *Settings → General → Danger Zone → Change visibility*.
 
-1. Publish a GitHub **release** (not just a tag or a push) whose tag carries the
-   version code, e.g. `v2.2.0-b12`, and attach the APK as a release asset.
-2. The APK must be signed with the **same key** as the installed build, or the
-   installer refuses to upgrade over it.
-3. Users must allow "install unknown apps" for Digi X TV on Android 8+.
+To publish an update:
 
-Because the check keys off `versionCode` extracted from the tag, always bump
-`versionCode` in `app/build.gradle.kts` before publishing.
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`, build.
+2. Copy the APK into `release/DigiX-TV-v<version>-b<code>.apk` and commit it.
+3. Edit `update.json` so `versionCode`, `versionName` and `apkUrl` match.
+4. `git push` — every install picks it up within a day (or on next launch).
+
+Android forbids silent self-updates, so the final step is always the system's own
+"update this app?" prompt. The APK must also be signed with the same key as the
+installed build, and users must allow "install unknown apps" for Digi X TV.
 
 ---
 
