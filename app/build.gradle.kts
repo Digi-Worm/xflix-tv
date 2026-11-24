@@ -13,7 +13,7 @@ android {
         applicationId = "dev.digi.digix"
         minSdk = 24
         targetSdk = 34
-        versionCode = 12
+        versionCode = 13
         versionName = "2.2.0"
 
         ndk {

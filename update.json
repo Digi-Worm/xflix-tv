@@ -1,7 +1,7 @@
 {
-  "versionCode": 12,
+  "versionCode": 13,
   "versionName": "2.2.0",
-  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b12.apk",
+  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b13.apk",
   "notes": "Automatic update checks, clickable centre play button, compact player deck.",
-  "publishedAt": "2026-11-24T00:00:00Z"
+  "publishedAt": "2026-11-24T12:00:00Z"
 }
