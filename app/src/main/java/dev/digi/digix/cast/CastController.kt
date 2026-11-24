@@ -6,6 +6,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.digi.digix.data.CastKind
 import dev.digi.digix.data.CastRequest
 import dev.digi.digix.data.CastTarget
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +56,15 @@ class CastController(private val context: Context) {
     private var discoveryJob: Job? = null
 
     /**
+     * Live Chromecast session, if one is running.
+     *
+     * Kept separately from [castingTo] because a Chromecast needs an open TLS
+     * socket on the receiver to issue pause/stop; closing it is how playback is
+     * torn down.
+     */
+    private var chromecast: ChromecastClient? = null
+
+    /**
      * Prepare to cast [request]. Opens the picker rather than casting straight
      * away: the phone has no way to know which TV the viewer means, and
      * silently picking the first responder sends a stream to the wrong room.
@@ -98,6 +108,10 @@ class CastController(private val context: Context) {
     /** Cast to a discovered TV. */
     fun castTo(target: CastTarget) {
         val request = pending ?: return
+        if (target.kind == CastKind.CHROMECAST) {
+            castToChromecast(target, request)
+            return
+        }
         busy = true
         error = null
         scope.launch {
@@ -109,6 +123,61 @@ class CastController(private val context: Context) {
                 sheetVisible = false
             } else {
                 error = "Couldn't reach ${target.name}. Check that the TV is on the same Wi-Fi."
+            }
+        }
+    }
+
+    /**
+     * Cast to a real Google Cast device.
+     *
+     * Unlike a Digi X TV, a Chromecast is a dumb player: it fetches the media URL
+     * itself, so the phone has to serve it and stay on the network. It also only
+     * decodes MP4/WebM/HLS/DASH - no Matroska, which is most torrent releases.
+     * Both limits are reported to the user rather than failing silently.
+     */
+    private fun castToChromecast(target: CastTarget, request: CastRequest) {
+        val url = request.url
+        if (url.isNullOrBlank()) {
+            error = "Chromecast can only play a direct video link. This source is a " +
+                "torrent, which a Chromecast can't fetch. Pick a direct link, or cast " +
+                "to a TV running Digi X TV."
+            return
+        }
+        ChromecastClient.unsupportedReason(url)?.let { reason ->
+            error = reason
+            return
+        }
+        val contentType = ChromecastClient.contentTypeFor(url) ?: "video/mp4"
+
+        busy = true
+        error = null
+        scope.launch {
+            val client = ChromecastClient(target.host, target.port)
+            val connected = client.connect()
+            if (!connected) {
+                client.close()
+                busy = false
+                error = "Couldn't connect to ${target.name}. Check the TV is on and on " +
+                    "the same Wi-Fi."
+                return@launch
+            }
+            val ok = client.play(
+                mediaUrl = url,
+                contentType = contentType,
+                title = request.title,
+                poster = request.poster,
+                positionMs = request.positionMs,
+            )
+            busy = false
+            if (ok) {
+                chromecast = client
+                castingTo = target
+                pending = null
+                sheetVisible = false
+            } else {
+                client.close()
+                error = "${target.name} refused to play this video. Chromecast only " +
+                    "accepts MP4 and WebM."
             }
         }
     }
@@ -150,6 +219,11 @@ class CastController(private val context: Context) {
     fun stopCasting() {
         val target = castingTo
         castingTo = null
+        chromecast?.let { client ->
+            chromecast = null
+            scope.launch { client.stop() }
+            return
+        }
         if (target == null) return
         scope.launch { withContext(Dispatchers.IO) { discovery.sendStop(target) } }
     }
@@ -160,6 +234,9 @@ class CastController(private val context: Context) {
      */
     fun publishStatus(title: String?, positionMs: Long, durationMs: Long, playing: Boolean) {
         val target = castingTo ?: return
+        // A Chromecast is driven over the Cast protocol, not this app's /status
+        // endpoint, and pushing there would just log a failure every second.
+        if (target.kind == CastKind.CHROMECAST) return
         val status = dev.digi.digix.data.CastStatus(
             deviceName = deviceName,
             title = title,

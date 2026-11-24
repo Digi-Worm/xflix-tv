@@ -1,7 +1,7 @@
 {
-  "versionCode": 26,
+  "versionCode": 27,
   "versionName": "2.2.0",
-  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b26.apk",
-  "notes": "Auto-clean leftover update installers on launch, honest cast copy, phone tap fix, build names in update UI.",
-  "publishedAt": "2026-11-25T04:40:00Z"
+  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b27.apk",
+  "notes": "Real Chromecast / Google Cast support via native Cast v2, plus phone tap fixes and safer updates.",
+  "publishedAt": "2026-11-25T05:20:00Z"
 }

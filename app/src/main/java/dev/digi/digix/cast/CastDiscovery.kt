@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import dev.digi.digix.data.CAST_DEFAULT_PORT
 import dev.digi.digix.data.CAST_SERVICE_TYPE
 import dev.digi.digix.data.CastJson
+import dev.digi.digix.data.CastKind
 import dev.digi.digix.data.CastRequest
 import dev.digi.digix.data.CastStatus
 import dev.digi.digix.data.CastTarget
@@ -88,6 +89,7 @@ class CastDiscovery(private val context: Context) {
     private var generation = 0
     private var wantDiscovery = false
     private var discoveryListener: NsdManager.DiscoveryListener? = null
+    private var chromecastListener: NsdManager.DiscoveryListener? = null
     private var rescanJob: Job? = null
     private var scanJob: Job? = null
 
@@ -97,6 +99,10 @@ class CastDiscovery(private val context: Context) {
     private val byName = LinkedHashMap<String, CastTarget>()
     private val resolvedAt = HashMap<String, Long>()
     private val resolveQueue = ArrayDeque<NsdServiceInfo>()
+
+    /** Kind for a queued resolve, since NsdServiceInfo does not carry it. */
+    private val pendingKinds = HashMap<String, CastKind>()
+
     private var resolving = false
 
     /**
@@ -214,6 +220,70 @@ class CastDiscovery(private val context: Context) {
             Log.w(TAG, "discoverServices failed", t)
             if (discoveryListener === listener) discoveryListener = null
         }
+
+        beginChromecastDiscovery(gen)
+    }
+
+    /**
+     * Second NSD session for real Google Cast devices.
+     *
+     * A separate listener is required because one `DiscoveryListener` can only
+     * serve one service type. Failures here are logged and ignored: plenty of
+     * networks have no Chromecast, and that must never affect finding a TV that
+     * runs this app.
+     */
+    private fun beginChromecastDiscovery(gen: Int) {
+        val manager = nsd ?: return
+        if (chromecastListener != null) return
+
+        val listener = object : NsdManager.DiscoveryListener {
+            override fun onDiscoveryStarted(serviceType: String) {
+                Log.d(TAG, "discovery started: $serviceType")
+            }
+
+            override fun onServiceFound(serviceInfo: NsdServiceInfo) {
+                scope.launch {
+                    if (gen != generation) return@launch
+                    enqueueResolve(serviceInfo, CastKind.CHROMECAST)
+                }
+            }
+
+            override fun onServiceLost(serviceInfo: NsdServiceInfo) {
+                scope.launch {
+                    if (gen != generation) return@launch
+                    val name = serviceInfo.serviceName ?: return@launch
+                    if (byName.remove(name) != null) {
+                        resolvedAt.remove(name)
+                        publish()
+                    }
+                }
+            }
+
+            override fun onDiscoveryStopped(serviceType: String) = Unit
+
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.d(TAG, "chromecast discovery failed ($errorCode)")
+                val me = this
+                scope.launch { if (chromecastListener === me) chromecastListener = null }
+            }
+
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
+                val me = this
+                scope.launch { if (chromecastListener === me) chromecastListener = null }
+            }
+        }
+
+        chromecastListener = listener
+        try {
+            manager.discoverServices(
+                CHROMECAST_SERVICE_TYPE,
+                NsdManager.PROTOCOL_DNS_SD,
+                listener
+            )
+        } catch (t: Throwable) {
+            Log.d(TAG, "chromecast discoverServices failed: ${t.message}")
+            if (chromecastListener === listener) chromecastListener = null
+        }
     }
 
     /**
@@ -233,6 +303,8 @@ class CastDiscovery(private val context: Context) {
         generation++
         resolveQueue.clear()
         resolving = false
+        chromecastListener?.let { runCatching { nsd?.stopServiceDiscovery(it) } }
+        chromecastListener = null
         val listener = discoveryListener ?: return
         discoveryListener = null
         runCatching { nsd?.stopServiceDiscovery(listener) }
@@ -474,7 +546,7 @@ class CastDiscovery(private val context: Context) {
     private fun hostAddressOf(info: NsdServiceInfo): String? =
         runCatching { info.host?.hostAddress }.getOrNull()
 
-    private fun enqueueResolve(info: NsdServiceInfo) {
+    private fun enqueueResolve(info: NsdServiceInfo, kind: CastKind = CastKind.DIGIX) {
         val name = info.serviceName
         if (name.isNullOrBlank()) return
 
@@ -485,6 +557,7 @@ class CastDiscovery(private val context: Context) {
         if (last != null && SystemClock.elapsedRealtime() - last < RESOLVE_TTL_MS) return
         if (resolveQueue.any { it.serviceName == name }) return
 
+        pendingKinds[name] = kind
         resolveQueue.addLast(info)
         drainResolveQueue()
     }
@@ -523,9 +596,23 @@ class CastDiscovery(private val context: Context) {
                         val name = serviceInfo.serviceName
                         val host = hostAddressOf(serviceInfo)
                         val port = serviceInfo.port
+                        val kind = name?.let { pendingKinds[it] } ?: CastKind.DIGIX
                         if (!name.isNullOrBlank() && !host.isNullOrBlank() && port in 1..65535) {
-                            byName[name] = CastTarget(name = name, host = host, port = port)
+                            // A Chromecast advertises its device description on
+                            // port 8008/8009 depending on model; the Cast v2
+                            // control port is always 8009, so pin it rather than
+                            // trusting the SRV record.
+                            val effectivePort =
+                                if (kind == CastKind.CHROMECAST) ChromecastClient.CAST_V2_PORT
+                                else port
+                            byName[name] = CastTarget(
+                                name = if (kind == CastKind.CHROMECAST) "$name" else name,
+                                host = host,
+                                port = effectivePort,
+                                kind = kind,
+                            )
                             resolvedAt[name] = SystemClock.elapsedRealtime()
+                            pendingKinds.remove(name)
                             publish()
                         }
                         drainResolveQueue()
@@ -747,6 +834,12 @@ class CastDiscovery(private val context: Context) {
         const val SCAN_PORT_ATTEMPTS = 3
 
         const val MULTICAST_LOCK_TAG = "digix-cast-discovery"
+
+        /**
+         * mDNS service type every Google Cast device advertises. Discovering it
+         * is what makes a Chromecast (or a Cast-enabled TV) appear in the picker.
+         */
+        const val CHROMECAST_SERVICE_TYPE = "_googlecast._tcp."
 
         val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 

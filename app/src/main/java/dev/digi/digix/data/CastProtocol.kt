@@ -37,17 +37,31 @@ const val CAST_SERVICE_TYPE = "_digixtv._tcp."
 const val CAST_DEFAULT_PORT = 47823
 
 /**
+ * Which protocol a discovered device speaks.
+ *
+ * [DIGIX] is this app's own receiver: the phone sends a stream *descriptor* and
+ * the TV resolves it itself, so playback survives the phone leaving.
+ *
+ * [CHROMECAST] is a real Google Cast device. It is a dumb media player: it only
+ * plays a URL it can fetch over HTTP(S), which means the phone has to serve the
+ * media itself and must stay on the network while casting.
+ */
+enum class CastKind { DIGIX, CHROMECAST }
+
+/**
  * One discovered TV, as the phone remembers it.
  *
  * [host] is a numeric LAN address because NSD hostnames (`digixtv.local`) do
  * not resolve on every Android version, and [port] is whatever the TV actually
- * bound, not necessarily [CAST_DEFAULT_PORT].
+ * bound, not necessarily [CAST_DEFAULT_PORT]. For a Chromecast, [port] is the
+ * Cast v2 control port, 8009.
  */
 @Serializable
 data class CastTarget(
     val name: String,
     val host: String,
     val port: Int,
+    val kind: CastKind = CastKind.DIGIX,
 )
 
 /**

@@ -58,6 +58,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.digi.digix.data.CastKind
 import dev.digi.digix.data.CastTarget
 import dev.digi.digix.ui.theme.Accent
 import dev.digi.digix.ui.theme.BrandAccent
@@ -189,14 +190,12 @@ fun CastSheet(
                 )
                 Spacer(Modifier.height(m.d(10.dp)))
                 Text(
-                    // Be explicit about what this actually searches for. Discovery
-                    // only knows the Digi X TV receiver protocol
-                    // (_digixtv._tcp.), so a Chromecast or Apple TV is invisible
-                    // here by design. Saying so avoids the "my cast devices never
-                    // show up" report, which was really a wrong expectation.
-                    text = "Finds devices running Digi X TV. Chromecast and AirPlay " +
-                        "devices are not supported — use their own app or the " +
-                        "Google Home app for those.",
+                    // Be explicit about what discovery actually searches for, so
+                    // the picker never looks broken: this app's own receiver
+                    // (_digixtv._tcp.) plus Google Cast (_googlecast._tcp.).
+                    // AirPlay has no public sender protocol and is not queried.
+                    text = "Finds TVs running Digi X TV and Chromecast / Google Cast " +
+                        "devices. AirPlay is not supported.",
                     color = MutedDim,
                     fontSize = m.f(11f),
                     lineHeight = m.f(16f),
@@ -350,8 +349,7 @@ private fun ScanningHint(m: UiMetrics) {
         // The app scans the local subnet directly as well as using mDNS, so a
         // same-subnet TV should appear within a couple of seconds.
         text = "Scanning your Wi-Fi for TVs. Both devices must be on the same " +
-            "network. If your TV still never appears, enter its address below. " +
-            "Only devices running Digi X TV are discoverable here.",
+            "network. If your TV still never appears, enter its address below.",
         color = Muted,
         fontSize = m.f(11f),
         lineHeight = m.f(16f),
@@ -388,7 +386,8 @@ private fun DeviceRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Filled.Tv,
+            imageVector = if (target.kind == CastKind.CHROMECAST) Icons.Filled.Cast
+            else Icons.Filled.Tv,
             contentDescription = null,
             tint = if (highlighted) BrandAccent else Muted,
             modifier = Modifier.size(m.d(20.dp)),
@@ -405,7 +404,11 @@ private fun DeviceRow(
             )
             Spacer(Modifier.height(m.d(1.dp)))
             Text(
-                text = "Ready",
+                // Say which protocol the row speaks. They behave differently: a
+                // Digi X TV keeps playing on its own, a Chromecast needs the
+                // phone to keep serving the file.
+                text = if (target.kind == CastKind.CHROMECAST) "Chromecast · MP4 / WebM only"
+                else "Digi X TV · plays on its own",
                 color = MutedDim,
                 fontSize = m.f(10f),
                 maxLines = 1,

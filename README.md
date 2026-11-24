@@ -155,15 +155,32 @@ and why Android reported a downgrade as an invalid package.
 
 ### What casting does and does not do
 
-Cast discovery looks for exactly one service type, `_digixtv._tcp.`, plus a direct
-scan of the local `/24` on the receiver port. It finds other devices **running
-Digi X TV** — a phone, a TV, or a box.
+Two protocols are supported, and the picker marks which one each device uses.
 
-Chromecast and AirPlay are **not supported**. Those devices advertise
-`_googlecast._tcp.` and `_airplay._tcp.`, which this code never queries, so they
-will never appear in the picker. Adding Chromecast would mean the Cast SDK plus a
-registered receiver app ID; AirPlay has no official sender SDK. The cast sheet
-says so explicitly rather than implying support it does not have.
+**Digi X TV** (`_digixtv._tcp.`, port 47823) — the phone sends a stream
+*descriptor*; the TV resolves it itself through its own torrent engine, so
+playback continues after the phone leaves the room or locks.
+
+**Chromecast / Google Cast** (`_googlecast._tcp.`, port 8009) — implemented
+natively in `ChromecastClient`, with no Play Services dependency and no
+registered receiver app ID. It speaks Cast v2 over TLS: a 4-byte length-prefixed
+`CastMessage` protobuf, `LAUNCH` of Google's Default Media Receiver (`CC1AD845`),
+then `LOAD` on the returned `transportId`. Verified against real hardware.
+
+A Chromecast is a *dumb player*: it fetches the media URL itself and can only
+decode MP4 and WebM (no Matroska, which is most torrent releases). Two
+consequences, both surfaced in the UI rather than failing silently:
+
+- A source with no direct `url` (pure torrent) is rejected with an explanation.
+- An `.mkv`/`.avi`/`.wmv`/`.flv` URL is rejected before the connection opens,
+  because the receiver would otherwise sit on a black screen.
+
+`play()` waits for the receiver's verdict and treats `LOAD_FAILED` or an `IDLE`
+state with an `idleReason` as failure. A well-formed `LOAD` is always *accepted*
+by the device before it discovers it cannot play the media, so returning on send
+would have reported broken casts as successful.
+
+**AirPlay is not supported.** There is no public sender protocol or SDK.
 
 ---
 

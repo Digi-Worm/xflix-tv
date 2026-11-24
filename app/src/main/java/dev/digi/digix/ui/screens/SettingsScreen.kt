@@ -120,7 +120,7 @@ fun SettingsScreen(
         // Copy is deliberately generic: it states the verdict, not the transport.
         // The old "Could not reach GitHub" wording was both unhelpful and often
         // wrong - the failure was a main-thread network call, not a dead network.
-        val updateValue = when (val s = updateState) {
+        val updateValue = when (updateState) {
             is UpdateState.Checking -> "Checking for a new version…"
             is UpdateState.Available -> {
                 // Name the build you are moving to. "A new version" alone left no
