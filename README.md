@@ -98,12 +98,15 @@ PowerShell prints a misleading `Exit code: 1` even on success. Trust the
 
 ## Automatic updates
 
-The app reads `update.json` from the repo once per day (via the GitHub contents
-API — `raw.githubusercontent.com` caches for minutes and ignores query-string
-cache busting) and compares `versionCode` with the installed one. When a newer
-version exists it posts a notification with a **Download** action that opens
-`DownloadUpdateActivity`, fetches the APK, and hands it to the system installer.
-If the manifest is unavailable it falls back to the GitHub releases API.
+The app reads `update.json` from the repo once per day on launch (via the GitHub
+contents API — `raw.githubusercontent.com` caches for minutes and ignores
+query-string cache busting) and compares `versionCode` with the installed one.
+When a newer version exists it posts a notification with a **Download** action.
+
+There is also a **manual path**: *Settings → Check for updates*. It states the
+current status ("You are on the latest version", "Version X is available") and
+the button switches between **Check now** and **Update now**, which opens
+`DownloadUpdateActivity` and hands the APK to the system installer.
 
 **The repository must be public**, or the app gets 404 and never sees an update.
 
