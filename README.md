@@ -21,6 +21,13 @@ GET  {addon}/stream/{type}/{id}.json            -> { "streams": [...] }
 GET  {addon}/subtitles/{type}/{id}.json         -> { "subtitles": [...] }
 ```
 
+**v2.1.0 features:**
+- Native Android TV UI with Jetpack Compose for TV
+- Built-in libtorrent engine for `infoHash` streaming
+- Full LAN casting (mDNS/NSD + HTTP endpoints)
+- Phone/tablet compatibility (auto-rotates)
+- Compact two-row player deck (~15% of frame)
+
 `extra` is a URL-encoded path segment, not a query string: `search=foo&skip=10`.
 
 Catalogs and metadata come from whatever addons the user installs. Streams are
@@ -108,6 +115,7 @@ vary widely in reported density.
 
 ## Requirements
 
-- Android TV / Google TV, API 24+
+- Android TV / Google TV / Phones / Tablets, API 24+
 - `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`
 - No Google account, no network login
+- WiFi connection required for casting

@@ -3,7 +3,7 @@
 This is the loop to use every session: pull, build, test on the TV, archive the
 APK, push. Nothing here needs the old local machine state.
 
-Repository: `https://github.com/Digi-Worm/digi-x-tv` (private)
+Repository: `https://github.com/Digi-Worm/xflix-tv.git` (public)
 
 ---
 
