@@ -46,3 +46,6 @@ tools/
 
 # Local scratch worktrees (duplicated full checkouts, never source)
 .worktrees/
+
+# uiautomator dump artifacts from on-device testing
+ui*.xml
