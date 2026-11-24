@@ -40,6 +40,14 @@ class UpdateChecker(context: Context) {
     private val _latestVersion = MutableStateFlow<String?>(null)
     val latestVersion: StateFlow<String?> = _latestVersion.asStateFlow()
 
+    /** Result of the most recent check, used to drive the Settings row. */
+    private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val state: StateFlow<UpdateState> = _state.asStateFlow()
+
+    /** The newer release, if the last check found one. */
+    private val _available = MutableStateFlow<GitHubReleaseInfo?>(null)
+    val available: StateFlow<GitHubReleaseInfo?> = _available.asStateFlow()
+
     companion object {
         private const val PREF_LAST_CHECK = "last_check_time"
         private const val PREF_VERSION_CODE = "installed_version_code"
@@ -59,6 +67,7 @@ class UpdateChecker(context: Context) {
     suspend fun checkForUpdates(force: Boolean = false) {
         if (_isChecking.value) return
         _isChecking.value = true
+        _state.value = UpdateState.Checking
 
         try {
             val currentTime = System.currentTimeMillis()
@@ -72,8 +81,13 @@ class UpdateChecker(context: Context) {
 
             val release = fetchLatestRelease()
             android.util.Log.i("UpdateChecker", "manifest fetch result: $release")
-            if (release != null) {
-                val installedVersionCode = prefs.getInt(PREF_VERSION_CODE, 0)
+            if (release == null) {
+                _state.value = UpdateState.Failed
+            } else {
+                val installedVersionCode = prefs.getInt(
+                    PREF_VERSION_CODE,
+                    dev.digi.digix.BuildConfig.VERSION_CODE
+                )
                 val hasUpdate = release.versionCode > installedVersionCode
                 android.util.Log.i(
                     "UpdateChecker",
@@ -82,6 +96,8 @@ class UpdateChecker(context: Context) {
 
                 _latestVersion.value = release.tagName
                 _hasUpdate.value = hasUpdate
+                _available.value = if (hasUpdate) release else null
+                _state.value = if (hasUpdate) UpdateState.Available else UpdateState.UpToDate
 
                 if (hasUpdate) {
                     showNotification(release)
@@ -93,9 +109,15 @@ class UpdateChecker(context: Context) {
             }
         } catch (e: Exception) {
             android.util.Log.w("UpdateChecker", "check failed", e)
+            _state.value = UpdateState.Failed
         } finally {
             _isChecking.value = false
         }
+    }
+
+    /** Manual check triggered by the Settings button; always bypasses the daily gate. */
+    suspend fun checkNow() {
+        checkForUpdates(force = true)
     }
 
     private suspend fun fetchLatestRelease(): GitHubReleaseInfo? {
@@ -241,11 +263,25 @@ class UpdateChecker(context: Context) {
     }
 
     fun openDownloadActivity() {
+        val release = _available.value
         val intent = Intent(context, DownloadUpdateActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (release != null) {
+                putExtra("release_url", release.downloadUrl)
+                putExtra("release_name", release.tagName)
+            }
         }
         context.startActivity(intent)
     }
+}
+
+/** Where the last update check stands, for the Settings row. */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data object Available : UpdateState
+    data object Failed : UpdateState
 }
 
 @kotlinx.serialization.Serializable

@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,7 +24,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.digi.digix.DigiXApp
 import dev.digi.digix.data.StorageJanitor
+import dev.digi.digix.data.UpdateState
 import dev.digi.digix.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,6 +44,10 @@ fun SettingsScreen(
     var torrentLabel by remember { mutableStateOf("measuring…") }
     var busy by remember { mutableStateOf(false) }
     var lastClean by remember { mutableStateOf<String?>(null) }
+
+    val checker = remember { DigiXApp.instance.updateChecker }
+    val updateState by checker.state.collectAsState()
+    val available by checker.available.collectAsState()
 
     fun refresh() {
         scope.launch {
@@ -99,6 +106,35 @@ fun SettingsScreen(
 
         SettingLine("App Name", "Digi X TV")
         SettingLine("Version", "${dev.digi.digix.BuildConfig.VERSION_NAME} (TV / Mobile)")
+
+        // Manual update check. Automatic checks run at most once a day, so this is
+        // the path a user takes when they know a release just shipped.
+        val updateValue = when (val s = updateState) {
+            is UpdateState.Checking -> "Checking GitHub for a newer release…"
+            is UpdateState.Available ->
+                "Version ${available?.tagName ?: "newer"} is available. Tap to download and install."
+            is UpdateState.UpToDate ->
+                "You are on the latest version (build ${dev.digi.digix.BuildConfig.VERSION_CODE})."
+            is UpdateState.Failed -> "Could not reach GitHub. Check the connection and retry."
+            is UpdateState.Idle -> "Tap to check for a newer version."
+        }
+        ActionLine(
+            title = "Check for updates",
+            value = updateValue,
+            action = when (updateState) {
+                is UpdateState.Checking -> "Checking…"
+                is UpdateState.Available -> "Update now"
+                else -> "Check now"
+            },
+            enabled = updateState !is UpdateState.Checking,
+            onClick = {
+                if (updateState is UpdateState.Available) {
+                    checker.openDownloadActivity()
+                } else {
+                    scope.launch { checker.checkNow() }
+                }
+            },
+        )
         SettingLine("UI Theme", "Cinema Dark (4K HDR)")
         SettingLine("Addons & Catalogs", "Managed dynamically via Addons tab")
         SettingLine("Playback Engine", "ExoPlayer Hardware Decoding & High-Performance Torrent Engine")
