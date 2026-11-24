@@ -98,15 +98,14 @@ PowerShell prints a misleading `Exit code: 1` even on success. Trust the
 
 ## Automatic updates
 
-The app checks `raw.githubusercontent.com/Digi-Worm/xflix-tv/main/update.json`
-once per day and compares `versionCode` with the installed one. When a newer
+The app reads `update.json` from the repo once per day (via the GitHub contents
+API — `raw.githubusercontent.com` caches for minutes and ignores query-string
+cache busting) and compares `versionCode` with the installed one. When a newer
 version exists it posts a notification with a **Download** action that opens
 `DownloadUpdateActivity`, fetches the APK, and hands it to the system installer.
-If `update.json` is missing it falls back to the GitHub releases API.
+If the manifest is unavailable it falls back to the GitHub releases API.
 
-**The repository must be public.** Raw files and the releases API are read
-anonymously by the app; on a private repo they return 404 and no update is ever
-detected. Toggle it under *Settings → General → Danger Zone → Change visibility*.
+**The repository must be public**, or the app gets 404 and never sees an update.
 
 To publish an update:
 
