@@ -24,7 +24,7 @@ GET  {addon}/subtitles/{type}/{id}.json         -> { "subtitles": [...] }
 **v2.1.0 features:**
 - Native Android TV UI with Jetpack Compose for TV
 - Built-in libtorrent engine for `infoHash` streaming
-- Full LAN casting (mDNS/NSD + HTTP endpoints)
+- Full LAN casting (active subnet scan + mDNS/NSD + HTTP endpoints)
 - Phone/tablet compatibility (auto-rotates)
 - Compact two-row player deck (~15% of frame)
 
@@ -100,13 +100,19 @@ PowerShell prints a misleading `Exit code: 1` even on success. Trust the
 
 The app reads `update.json` from the repo once per day on launch (via the GitHub
 contents API — `raw.githubusercontent.com` caches for minutes and ignores
-query-string cache busting) and compares `versionCode` with the installed one.
-When a newer version exists it posts a notification with a **Download** action.
+query-string cache busting) and compares `versionCode` with the version actually
+installed, read from `PackageManager`. When a newer version exists it posts a
+notification with a **Download** action.
 
 There is also a **manual path**: *Settings → Check for updates*. It states the
 current status ("You are on the latest version", "Version X is available") and
 the button switches between **Check now** and **Update now**, which opens
 `DownloadUpdateActivity` and hands the APK to the system installer.
+
+The manual button always bypasses the once-a-day gate, so a freshly pushed
+`update.json` is visible on the next tap. Notifications additionally require the
+Android 13+ `POST_NOTIFICATIONS` runtime grant, which the app requests on first
+launch; if it is denied, the Settings row is still authoritative.
 
 **The repository must be public**, or the app gets 404 and never sees an update.
 
@@ -146,3 +152,8 @@ vary widely in reported density.
 - `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`
 - No Google account, no network login
 - WiFi connection required for casting
+- Phone and TV must be on the same network. The phone finds TVs two ways at
+  once: a direct scan of the local /24 on the cast port (`GET /health`, results
+  in ~2 s) and mDNS/NSD, which also covers the case where the TV sits on a
+  different subnet and the router lets multicast through. Manual address entry
+  remains the fallback for isolated guest networks.
