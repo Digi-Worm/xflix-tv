@@ -76,6 +76,10 @@ class UpdateChecker(context: Context) {
 
             if (!force && timeSinceLastCheck < TimeUnit.DAYS.toMillis(1)) {
                 _isChecking.value = false
+                // Restore the verdict from the previous check instead of leaving
+                // the row on Idle, otherwise a gated check would silently drop
+                // the "Update now" action the user already saw.
+                _state.value = if (_hasUpdate.value) UpdateState.Available else UpdateState.UpToDate
                 return
             }
 
@@ -84,10 +88,11 @@ class UpdateChecker(context: Context) {
             if (release == null) {
                 _state.value = UpdateState.Failed
             } else {
-                val installedVersionCode = prefs.getInt(
-                    PREF_VERSION_CODE,
-                    dev.digi.digix.BuildConfig.VERSION_CODE
-                )
+                // Compare against what is installed *now*, read from the package
+                // manager. The stored pref is written by the previous build, so a
+                // user who sideloads a newer APK would otherwise be compared
+                // against a stale number and told they are up to date.
+                val installedVersionCode = installedVersionCode()
                 val hasUpdate = release.versionCode > installedVersionCode
                 android.util.Log.i(
                     "UpdateChecker",
@@ -105,6 +110,7 @@ class UpdateChecker(context: Context) {
 
                 prefs.edit()
                     .putLong(PREF_LAST_CHECK, currentTime)
+                    .putInt(PREF_VERSION_CODE, installedVersionCode)
                     .apply()
             }
         } catch (e: Exception) {
@@ -113,6 +119,16 @@ class UpdateChecker(context: Context) {
         } finally {
             _isChecking.value = false
         }
+    }
+
+    /** The versionCode actually installed, or the build constant if unknown. */
+    private fun installedVersionCode(): Int = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).let {
+            @Suppress("DEPRECATION")
+            it.versionCode
+        }.takeIf { it > 0 } ?: dev.digi.digix.BuildConfig.VERSION_CODE
+    } catch (e: Exception) {
+        dev.digi.digix.BuildConfig.VERSION_CODE
     }
 
     /** Manual check triggered by the Settings button; always bypasses the daily gate. */
@@ -207,6 +223,20 @@ class UpdateChecker(context: Context) {
     }
 
     private fun showNotification(release: GitHubReleaseInfo) {
+        // Android 13+ needs a runtime grant, and nothing in the app ever asked
+        // for it, so on a phone the notification was dropped without a trace
+        // even though the check succeeded. The Settings row still shows the
+        // update, which is why the manual path has to work independently of this.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS,
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            android.util.Log.i("UpdateChecker", "no POST_NOTIFICATIONS grant; skipping notification")
+            return
+        }
+
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -339,9 +369,26 @@ data class GitHubReleaseInfo(
             )
         }
 
+        /**
+         * Derive a comparable versionCode from a tag such as `2.2.0-b18`.
+         *
+         * Taking the first number in the string (the old behaviour) turned
+         * `2.2.0-b18` into `2`, which compares *below* every build and would
+         * report "up to date" forever. Prefer an explicit build number, then
+         * fold a semver triple into a monotonic int.
+         */
         private fun extractVersionCode(tagName: String): Int {
-            val match = Regex("[0-9]+").find(tagName)
-            return match?.value?.toIntOrNull() ?: 0
+            Regex("-b(\\d+)", RegexOption.IGNORE_CASE).find(tagName)?.let { match ->
+                match.groupValues[1].toIntOrNull()?.let { return it }
+            }
+            val parts = Regex("(\\d+)\\.(\\d+)\\.(\\d+)").find(tagName)
+            if (parts != null) {
+                val major = parts.groupValues[1].toIntOrNull() ?: 0
+                val minor = parts.groupValues[2].toIntOrNull() ?: 0
+                val patch = parts.groupValues[3].toIntOrNull() ?: 0
+                return major * 10_000 + minor * 100 + patch
+            }
+            return Regex("[0-9]+").find(tagName)?.value?.toIntOrNull() ?: 0
         }
     }
 }

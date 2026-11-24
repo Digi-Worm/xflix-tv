@@ -3,8 +3,10 @@ package dev.digi.digix.cast
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
 import android.os.SystemClock
 import android.util.Log
+import java.util.concurrent.atomic.AtomicInteger
 import dev.digi.digix.data.CAST_DEFAULT_PORT
 import dev.digi.digix.data.CAST_SERVICE_TYPE
 import dev.digi.digix.data.CastJson
@@ -15,30 +17,48 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.Inet4Address
+import java.net.NetworkInterface
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
  * Finds Digi X TVs on the LAN and talks to them.
  *
- * Discovery uses NSD, the only LAN service API reachable without extra
- * dependencies. It is also the flakiest part of the stack: cheap TV firmware
- * drops registrations, routers block multicast, and a listener that is stopped
- * and immediately restarted throws "listener already in use". Nothing here is
- * allowed to throw or to leave a dangling listener - the worst case is an empty
- * list plus a retry twenty seconds later, which is exactly what the manual IP
- * entry in the cast picker exists to cover.
+ * Two discovery paths run at the same time and merge into one list:
+ *
+ *  1. **Active subnet scan.** The /24 around this device's own IPv4 is probed
+ *     on [CAST_DEFAULT_PORT]..[PORT_ATTEMPTS] with a concurrent `GET /health`.
+ *     This is the reliable path: it needs no multicast, works on routers that
+ *     drop mDNS, and returns in a couple of seconds instead of tens.
+ *  2. **NSD (mDNS).** Kept because it also finds TVs on a different subnet and
+ *     because it is the only way to learn a TV's *name* without already knowing
+ *     its address. It is the flakier path: cheap TV firmware drops
+ *     registrations and some routers block multicast outright.
+ *
+ * A [WifiManager.MulticastLock] is held while discovery is running. Without it
+ * the Wi-Fi stack filters mDNS replies in low-power mode on most phones, which
+ * was the single biggest cause of "the TV never shows up".
+ *
+ * Nothing here is allowed to throw or to leave a dangling listener - the worst
+ * case is a short list plus the manual IP entry in the cast picker.
  *
  * The object owns its scope, so callers never manage coroutines or cancellation
  * just to get a device list.
@@ -69,11 +89,25 @@ class CastDiscovery(private val context: Context) {
     private var wantDiscovery = false
     private var discoveryListener: NsdManager.DiscoveryListener? = null
     private var rescanJob: Job? = null
+    private var scanJob: Job? = null
+
+    /** Held while discovery runs so the Wi-Fi stack stops filtering mDNS. */
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     private val byName = LinkedHashMap<String, CastTarget>()
     private val resolvedAt = HashMap<String, Long>()
     private val resolveQueue = ArrayDeque<NsdServiceInfo>()
     private var resolving = false
+
+    /**
+     * Targets confirmed by the active scan, keyed by `host:port`.
+     *
+     * Kept apart from [byName] because NSD knows the TV's *name* while a scan
+     * knows only the address. A scan hit is upgraded to a named entry as soon as
+     * NSD resolves the same endpoint, and both sources feed [publish].
+     */
+    private val byAddress = HashMap<String, CastTarget>()
+    private val addressSeenAt = HashMap<String, Long>()
 
     /** First-failure-only log gate for [pushStatus], which fires about once a second. */
     private val pushFailureLogged = ConcurrentHashMap<String, Boolean>()
@@ -82,8 +116,12 @@ class CastDiscovery(private val context: Context) {
     fun start() {
         scope.launch {
             wantDiscovery = true
+            acquireMulticastLock()
             if (discoveryListener == null) beginDiscovery()
             ensureRescanLoop()
+            // The active scan is what actually produces results in a second or
+            // two; kick it immediately rather than waiting for the first tick.
+            if (scanJob?.isActive != true) ensureScanLoop(immediate = true)
         }
     }
 
@@ -96,9 +134,14 @@ class CastDiscovery(private val context: Context) {
             wantDiscovery = false
             rescanJob?.cancel()
             rescanJob = null
+            scanJob?.cancel()
+            scanJob = null
             stopDiscovery()
+            releaseMulticastLock()
             byName.clear()
             resolvedAt.clear()
+            byAddress.clear()
+            addressSeenAt.clear()
             publish()
         }
     }
@@ -217,6 +260,206 @@ class CastDiscovery(private val context: Context) {
         }
     }
 
+    // --- Multicast lock ----------------------------------------------------
+
+    /**
+     * Wi-Fi power saving silently drops multicast/broadcast frames, which is
+     * exactly what mDNS replies are. Holding this lock is the difference
+     * between "no TVs found" and "found in two seconds" on most phones.
+     *
+     * Deliberately non-fatal: a device without Wi-Fi (Ethernet-only TV, or the
+     * user casting over a hotspot) simply has no lock to take.
+     */
+    private fun acquireMulticastLock() {
+        if (multicastLock?.isHeld == true) return
+        runCatching {
+            val wifi = context.applicationContext
+                .getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                ?: return
+            val lock = wifi.createMulticastLock(MULTICAST_LOCK_TAG).apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+            multicastLock = lock
+            Log.d(TAG, "multicast lock acquired")
+        }.onFailure { Log.w(TAG, "multicast lock unavailable", it) }
+    }
+
+    private fun releaseMulticastLock() {
+        val lock = multicastLock ?: return
+        multicastLock = null
+        runCatching {
+            if (lock.isHeld) lock.release()
+        }.onFailure { Log.w(TAG, "multicast lock release failed", it) }
+    }
+
+    // --- Active subnet scan ------------------------------------------------
+
+    /**
+     * Probe the local /24 on the cast port range. This is the fast, boring path
+     * that does not depend on multicast at all.
+     *
+     * Every address is tried concurrently behind a [SCAN_CONCURRENCY] semaphore:
+     * 254 sockets at once exhausts file descriptors on a phone, but a few dozen
+     * in parallel finish a /24 in a handful of batches.
+     */
+    private fun ensureScanLoop(immediate: Boolean = false) {
+        if (scanJob?.isActive == true) return
+        scanJob = scope.launch {
+            if (!immediate) delay(SCAN_INTERVAL_MS)
+            while (isActive && wantDiscovery) {
+                runCatching { scanSubnet() }
+                    .onFailure { Log.w(TAG, "subnet scan failed", it) }
+                pruneStale()
+                delay(SCAN_INTERVAL_MS)
+            }
+        }
+    }
+
+    private suspend fun scanSubnet() {
+        val localIp = findLocalIpv4() ?: run {
+            Log.d(TAG, "no LAN IPv4; skipping subnet scan")
+            return
+        }
+        val prefix = localIp.substringBeforeLast('.', "")
+        if (prefix.isEmpty()) return
+
+        val started = SystemClock.elapsedRealtime()
+
+        // Phase 1: the default port only. The receiver only falls back to
+        // another port when 47823 is taken, which is rare, and probing four
+        // ports per host quadruples the socket count for no usual gain.
+        val hosts = (1..254).map { "$prefix.$it" }.filter { it != localIp }
+        var found = sweep(hosts, listOf(CAST_DEFAULT_PORT))
+
+        // Phase 2: nothing at all answered on the default port, so pay for the
+        // full receiver range before concluding there are no TVs. Only runs in
+        // that case, which keeps the common path fast.
+        if (found == 0) {
+            val extended = (1..SCAN_PORT_ATTEMPTS).map { CAST_DEFAULT_PORT + it }
+            found = sweep(hosts, extended)
+            Log.d(TAG, "extended scan on ports $extended found $found")
+        }
+
+        Log.d(
+            TAG,
+            "subnet scan $prefix.0/24: $found device(s) in " +
+                "${SystemClock.elapsedRealtime() - started} ms"
+        )
+        pruneStale()
+    }
+
+    /**
+     * Probe every host on every port in [ports], all concurrently behind one
+     * semaphore, and return how many endpoints were registered.
+     */
+    private suspend fun sweep(hosts: List<String>, ports: List<Int>): Int {
+        val semaphore = Semaphore(SCAN_CONCURRENCY)
+        val found = AtomicInteger(0)
+
+        coroutineScope {
+            for (host in hosts) {
+                launch(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        val target = probeHost(host, ports)
+                        if (target != null) {
+                            found.incrementAndGet()
+                            registerScanned(target)
+                        }
+                    }
+                }
+            }
+        }
+        return found.get()
+    }
+
+    /**
+     * Try each of [ports] on [host], returning the first that answers as a
+     * Digi X TV.
+     *
+     * The ports are probed **concurrently**, sharing one timeout window. Probing
+     * them in sequence multiplied the sweep time by the port count - 254 hosts x
+     * 3 ports x 600 ms was over ten seconds on a real TV, which is exactly the
+     * "discovery is slow" complaint. Concurrently it costs one timeout.
+     */
+    private suspend fun probeHost(host: String, ports: List<Int>): CastTarget? =
+        coroutineScope {
+            val probes = ports.map { port -> async { probeHealth(host, port) } }
+            probes.firstNotNullOfOrNull { it.await() }
+        }
+
+    private suspend fun probeHealth(host: String, port: Int): CastTarget? {
+        return try {
+            val body = httpGetScan("http://$host:$port/health") ?: return null
+            // Decoding the whole status keeps the scan honest: any other web
+            // server on the LAN will not answer as a Digi X TV.
+            val name = runCatching {
+                CastJson.decodeFromString(CastStatus.serializer(), body).deviceName
+            }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
+            CastTarget(name = name, host = host, port = port)
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    /**
+     * Non-blocking GET.
+     *
+     * This must NOT be a blocking `execute()` on `Dispatchers.IO`: that pool is
+     * capped at 64 threads, so 254 parallel probes silently serialised into four
+     * waves and the sweep took ~10 s on a real TV. `enqueue` parks no thread, so
+     * the whole /24 really is in flight at once and finishes in one timeout.
+     */
+    private suspend fun httpGetScan(url: String): String? =
+        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            val request = Request.Builder().url(url).get().build()
+            val call = scanHttp.newCall(request)
+            continuation.invokeOnCancellation { runCatching { call.cancel() } }
+            call.enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                    if (continuation.isActive) continuation.resumeWith(Result.success(null))
+                }
+
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    val body = runCatching {
+                        response.use {
+                            if (it.isSuccessful) it.body?.string() else null
+                        }
+                    }.getOrNull()
+                    if (continuation.isActive) continuation.resumeWith(Result.success(body))
+                }
+            })
+        }
+
+    private fun registerScanned(target: CastTarget) {
+        val endpoint = key(target)
+        val isNew = byAddress.put(endpoint, target) == null
+        addressSeenAt[endpoint] = SystemClock.elapsedRealtime()
+        // Only repaint for a genuinely new endpoint. A repeat sweep of the same
+        // /24 would otherwise publish 250 identical lists a second.
+        if (isNew) {
+            Log.d(TAG, "active scan found $endpoint (${target.name})")
+            publish()
+        }
+    }
+
+    /** Local IPv4, preferring Wi-Fi then Ethernet - same policy as the receiver. */
+    private fun findLocalIpv4(): String? = runCatching {
+        val candidates = mutableListOf<Pair<String, String>>()
+        for (nif in Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            if (!nif.isUp || nif.isLoopback) continue
+            for (address in Collections.list(nif.inetAddresses)) {
+                if (address !is Inet4Address) continue
+                if (address.isLoopbackAddress || address.isLinkLocalAddress) continue
+                val host = address.hostAddress ?: continue
+                candidates += nif.name to host
+            }
+        }
+        (candidates.firstOrNull { it.first.startsWith("wlan") }
+            ?: candidates.firstOrNull { it.first.startsWith("eth") }
+            ?: candidates.firstOrNull())?.second
+    }.getOrNull()
+
     // --- Resolution --------------------------------------------------------
 
     /**
@@ -299,26 +542,54 @@ class CastDiscovery(private val context: Context) {
     private fun pruneStale() {
         val now = SystemClock.elapsedRealtime()
         var changed = false
+
         val iterator = byName.keys.iterator()
         while (iterator.hasNext()) {
             val name = iterator.next()
-            val seenAt = resolvedAt[name] ?: 0L
+            val endpoint = byName[name]?.let { key(it) }
+            val seenAt = maxOf(
+                resolvedAt[name] ?: 0L,
+                endpoint?.let { addressSeenAt[it] } ?: 0L,
+            )
             if (now - seenAt > STALE_MS) {
                 iterator.remove()
                 resolvedAt.remove(name)
                 changed = true
             }
         }
+
+        val addressIterator = byAddress.keys.iterator()
+        while (addressIterator.hasNext()) {
+            val endpoint = addressIterator.next()
+            val seenAt = addressSeenAt[endpoint] ?: 0L
+            if (now - seenAt > STALE_MS) {
+                addressIterator.remove()
+                addressSeenAt.remove(endpoint)
+                changed = true
+            }
+        }
+
         if (changed) publish()
     }
 
-    /** Two service names can point at one endpoint; the picker shows it once. */
+    /**
+     * Merge NSD results and scan results into one de-duplicated list.
+     *
+     * NSD entries come first so the display *name* is the TV's advertised one
+     * ("Living Room TCL") rather than a bare address, and an endpoint seen by
+     * both sources is shown exactly once.
+     */
     private fun publish() {
-        val seen = HashSet<String>(byName.size)
-        val list = ArrayList<CastTarget>(byName.size)
+        val seen = HashSet<String>(byName.size + byAddress.size)
+        val list = ArrayList<CastTarget>(byName.size + byAddress.size)
+
         for (target in byName.values) {
-            if (seen.add("${target.host}:${target.port}")) list.add(target)
+            if (seen.add(key(target))) list.add(target)
         }
+        for ((endpoint, target) in byAddress) {
+            if (seen.add(endpoint)) list.add(target)
+        }
+
         _targets.value = list.sortedBy { it.name.lowercase() }
     }
 
@@ -443,8 +714,12 @@ class CastDiscovery(private val context: Context) {
     private companion object {
         const val TAG = "CastDiscovery"
 
-        /** NSD goes quiet without telling anyone; a rescan is the only cure. */
-        const val RESCAN_INTERVAL_MS = 20_000L
+        /**
+         * NSD goes quiet without telling anyone; a rescan is the only cure. Kept
+         * short because the gap between rescans is dead time for a newly woken
+         * TV, and the active scan already covers the common case.
+         */
+        const val RESCAN_INTERVAL_MS = 12_000L
 
         /** An immediate stop-then-start is rejected by the framework. */
         const val RESTART_GAP_MS = 700L
@@ -455,7 +730,48 @@ class CastDiscovery(private val context: Context) {
         /** Drop a TV that no scan has confirmed for this long. */
         const val STALE_MS = 90_000L
 
+        /** How often the /24 is re-probed while the picker is open. */
+        const val SCAN_INTERVAL_MS = 8_000L
+
+        /**
+         * Bounds the worst case. A live TV answers in single-digit milliseconds;
+         * an *absent* address is what costs time, because the OS waits on ARP
+         * before giving up. 400 ms was enough to reach every TV on the test
+         * network, and a full /24 sweep then lands in roughly two batches.
+         */
+        const val SCAN_TIMEOUT_MS = 400L
+
+        const val SCAN_CONCURRENCY = 254
+
+        /** The receiver binds [CAST_DEFAULT_PORT] + 0..10, so match that range. */
+        const val SCAN_PORT_ATTEMPTS = 3
+
+        const val MULTICAST_LOCK_TAG = "digix-cast-discovery"
+
         val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
+
+        /**
+         * Only the scanner uses this: a /24 is 254 probes and each one must give
+         * up almost immediately, or the whole sweep outlives the picker.
+         *
+         * The dispatcher limits matter more than the timeouts. OkHttp's default
+         * is 64 concurrent requests, so a semaphore of 128 still ran the sweep in
+         * four sequential batches and took ~10 s on a real TV. Raising it to the
+         * full host count lets every address be tried in one window.
+         */
+        val scanHttp: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(SCAN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .readTimeout(SCAN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(false)
+                .dispatcher(
+                    okhttp3.Dispatcher().apply {
+                        maxRequests = SCAN_CONCURRENCY
+                        maxRequestsPerHost = SCAN_CONCURRENCY
+                    }
+                )
+                .build()
+        }
 
         /**
          * One pool for the whole cast path. Timeouts are short because every

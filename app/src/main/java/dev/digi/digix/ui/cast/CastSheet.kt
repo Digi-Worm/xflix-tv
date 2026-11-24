@@ -333,8 +333,10 @@ private fun ScanningHint(m: UiMetrics) {
     Text(
         // Multicast is blocked across subnets and on many guest networks, so
         // this hint saves the user from reporting "it just never finds my TV".
-        text = "Both devices must be on the same Wi-Fi. If your TV never appears, " +
-            "enter its address below.",
+        // The app scans the local subnet directly as well as using mDNS, so a
+        // same-subnet TV should appear within a couple of seconds.
+        text = "Scanning your Wi-Fi for TVs. Both devices must be on the same " +
+            "network. If your TV still never appears, enter its address below.",
         color = Muted,
         fontSize = m.f(11f),
         lineHeight = m.f(16f),

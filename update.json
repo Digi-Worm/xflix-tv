@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
+  "versionCode": 19,
   "versionName": "2.2.0",
-  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b18.apk",
-  "notes": "Manual update check in Settings, automatic daily check, clickable centre play, compact player deck.",
-  "publishedAt": "2026-11-24T22:00:00Z"
+  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b19.apk",
+  "notes": "Fast cast discovery: active subnet scan plus multicast lock, TVs found in ~2s. Reliable manual update check.",
+  "publishedAt": "2026-11-24T23:30:00Z"
 }
