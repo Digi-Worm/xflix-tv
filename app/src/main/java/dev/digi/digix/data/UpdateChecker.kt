@@ -277,6 +277,7 @@ class UpdateChecker(context: Context) {
         val downloadIntent = Intent(context, DownloadUpdateActivity::class.java).apply {
             putExtra("release_url", release.downloadUrl)
             putExtra("release_name", release.tagName)
+            putExtra("version_code", release.versionCode)
         }
         val downloadPendingIntent = PendingIntent.getActivity(
             context,
@@ -326,6 +327,7 @@ class UpdateChecker(context: Context) {
             if (release != null) {
                 putExtra("release_url", release.downloadUrl)
                 putExtra("release_name", release.tagName)
+                putExtra("version_code", release.versionCode)
             }
         }
         context.startActivity(intent)

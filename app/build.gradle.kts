@@ -16,7 +16,7 @@ android {
         // Single source of truth for the build identity. versionName is derived
         // from it, so the Settings row always names the exact build instead of
         // the frozen "2.2.0" that made every release look identical.
-        versionCode = 22
+        versionCode = 23
         versionName = "2.2.0"
 
         ndk {

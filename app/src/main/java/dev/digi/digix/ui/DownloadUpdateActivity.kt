@@ -43,11 +43,16 @@ class DownloadUpdateActivity : ComponentActivity() {
             val context = LocalContext.current
             val releaseUrl = intent.getStringExtra("release_url") ?: ""
             val releaseName = intent.getStringExtra("release_name") ?: "Update"
+            // The build the manifest advertised. Used both to name the download
+            // (so a new build never reuses an old file) and to verify the APK we
+            // actually got before handing it to the installer.
+            val targetVersionCode = intent.getIntExtra("version_code", 0)
 
             var progress by remember { mutableStateOf(0) }
             var isDownloading by remember { mutableStateOf(false) }
             var isComplete by remember { mutableStateOf(false) }
             var failed by remember { mutableStateOf(false) }
+            var failureText by remember { mutableStateOf<String?>(null) }
 
             val downloadManager =
                 context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -57,12 +62,43 @@ class DownloadUpdateActivity : ComponentActivity() {
             // twice stacks two system prompts.
             var installLaunched by remember { mutableStateOf(false) }
 
+            /**
+             * The file DownloadManager actually wrote, taken from the query rather
+             * than assumed.
+             *
+             * DownloadManager does NOT overwrite an existing destination: it saves
+             * alongside it as `name-1.apk`, `name-2.apk`, and so on. Installing the
+             * hard-coded `DigiX-TV-update.apk` therefore reinstalled the *previous*
+             * download, which is exactly why an update looked like it did nothing
+             * and left the old version installed.
+             */
+            var localUri by remember { mutableStateOf<Uri?>(null) }
+
+            val downloadsDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+
+            /** A per-build name, so two versions can never collide on disk. */
+            fun apkFileName(): String =
+                if (targetVersionCode > 0) "DigiX-TV-update-$targetVersionCode.apk"
+                else "DigiX-TV-update-${System.currentTimeMillis()}.apk"
+
+            /** Remove leftovers so the device does not accumulate old installers. */
+            fun clearOldDownloads() {
+                runCatching {
+                    downloadsDir?.listFiles()
+                        ?.filter { it.name.startsWith("DigiX-TV-update") && it.extension == "apk" }
+                        ?.forEach { it.delete() }
+                }
+            }
+
             fun startDownload() {
                 if (releaseUrl.isBlank()) {
                     failed = true
+                    failureText = "No download link was provided."
                     return
                 }
                 try {
+                    clearOldDownloads()
+                    val fileName = apkFileName()
                     val request = DownloadManager.Request(Uri.parse(releaseUrl)).apply {
                         setTitle("Digi X TV $releaseName")
                         setDescription("Downloading the latest version")
@@ -72,7 +108,7 @@ class DownloadUpdateActivity : ComponentActivity() {
                         setDestinationInExternalFilesDir(
                             context,
                             Environment.DIRECTORY_DOWNLOADS,
-                            "DigiX-TV-update.apk"
+                            fileName
                         )
                         setAllowedOverMetered(true)
                         setAllowedOverRoaming(false)
@@ -80,41 +116,51 @@ class DownloadUpdateActivity : ComponentActivity() {
                     val id = downloadManager.enqueue(request)
                     isDownloading = true
                     failed = false
+                    failureText = null
+                    progress = 0
 
                     lifecycleScope.launch {
                         while (true) {
+                            var status = -1
+                            var done = 0L
+                            var total = 0L
+                            var reported: String? = null
                             val cursor = downloadManager.query(
                                 DownloadManager.Query().setFilterById(id)
                             )
                             if (cursor.moveToFirst()) {
-                                val status = cursor.getInt(
+                                status = cursor.getInt(
                                     cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
                                 )
-                                val done = cursor.getLong(
+                                done = cursor.getLong(
                                     cursor.getColumnIndexOrThrow(
                                         DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
                                     )
                                 )
-                                val total = cursor.getLong(
+                                total = cursor.getLong(
                                     cursor.getColumnIndexOrThrow(
                                         DownloadManager.COLUMN_TOTAL_SIZE_BYTES
                                     )
                                 )
-                                if (total > 0) progress = ((done * 100) / total).toInt()
-                                cursor.close()
+                                val uriIndex =
+                                    cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                                if (uriIndex >= 0) reported = cursor.getString(uriIndex)
+                            }
+                            cursor.close()
 
-                                if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                    progress = 100
-                                    isDownloading = false
-                                    isComplete = true
-                                    break
-                                } else if (status == DownloadManager.STATUS_FAILED) {
-                                    isDownloading = false
-                                    failed = true
-                                    break
-                                }
-                            } else {
-                                cursor.close()
+                            if (total > 0) progress = ((done * 100) / total).toInt()
+
+                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                                progress = 100
+                                isDownloading = false
+                                localUri = reported?.let { Uri.parse(it) }
+                                isComplete = true
+                                break
+                            } else if (status == DownloadManager.STATUS_FAILED) {
+                                isDownloading = false
+                                failed = true
+                                failureText = "Download failed. Tap retry."
+                                break
                             }
                             delay(500)
                         }
@@ -122,34 +168,55 @@ class DownloadUpdateActivity : ComponentActivity() {
                 } catch (e: Exception) {
                     isDownloading = false
                     failed = true
+                    failureText = e.message
                 }
             }
 
             fun installApk() {
-                val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                val apk = File(dir, "DigiX-TV-update.apk")
-                if (!apk.exists()) {
-                    Toast.makeText(context, "APK not found", Toast.LENGTH_SHORT).show()
+                val file = localUri?.takeIf { it.scheme == "file" }?.path?.let { File(it) }
+                    ?: downloadsDir?.let { File(it, apkFileName()) }
+
+                if (file == null || !file.exists() || file.length() == 0L) {
+                    isComplete = false
+                    failed = true
+                    failureText = "The downloaded file is missing. Tap retry."
                     return
                 }
-                try {
-                    val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.updates",
-                            apk
-                        )
-                    } else {
-                        Uri.fromFile(apk)
+
+                // Verify the APK is the build we advertised before handing it to
+                // the installer. This is the check that would have caught the
+                // stale-file bug above instead of silently reinstalling the same
+                // version and looking like nothing happened.
+                if (targetVersionCode > 0) {
+                    val info = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
+                    @Suppress("DEPRECATION")
+                    val actual = info?.versionCode ?: -1
+                    if (actual != targetVersionCode) {
+                        runCatching { file.delete() }
+                        isComplete = false
+                        failed = true
+                        failureText =
+                            "Downloaded build ${if (actual > 0) actual else "unknown"} " +
+                                "instead of $targetVersionCode. Tap retry."
+                        return
                     }
+                }
+
+                try {
+                    val contentUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.updates",
+                        file
+                    )
                     val install = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(uri, "application/vnd.android.package-archive")
+                        setDataAndType(contentUri, "application/vnd.android.package-archive")
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(install)
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Cannot open installer: ${e.message}", Toast.LENGTH_LONG).show()
+                    failed = true
+                    failureText = "Cannot open installer: ${e.message}"
                 }
             }
 
@@ -205,10 +272,11 @@ class DownloadUpdateActivity : ComponentActivity() {
                         }
                         Text(
                             when {
-                                failed -> "Download failed. Check the connection and retry."
-                                isComplete -> "Download complete. Tap Install to finish."
-                                isDownloading -> "Downloading... $progress%"
-                                else -> "Not started"
+                                failed -> failureText
+                                    ?: "Download failed. Check the connection and retry."
+                                isComplete -> "Download complete. Opening the installer…"
+                                isDownloading -> "Downloading… $progress%"
+                                else -> "Preparing download…"
                             },
                             color = Color.White.copy(alpha = 0.7f),
                             style = MaterialTheme.typography.bodyMedium

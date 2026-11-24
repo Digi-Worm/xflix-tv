@@ -127,6 +127,26 @@ Android forbids silent self-updates, so the final step is always the system's ow
 "update this app?" prompt. The APK must also be signed with the same key as the
 installed build, and users must allow "install unknown apps" for Digi X TV.
 
+### Why an update could "do nothing"
+
+`DownloadManager` never overwrites an existing destination — it saves alongside it
+as `name-1.apk`, `name-2.apk`, and so on. The old code always installed the
+hard-coded `DigiX-TV-update.apk`, so a second update reinstalled the *first*
+download and the app stayed on the old build no matter how many times you tapped.
+
+`DownloadUpdateActivity` now:
+
+- names each download `DigiX-TV-update-<versionCode>.apk`, so builds cannot collide;
+- deletes leftover `DigiX-TV-update*.apk` files before downloading;
+- installs the file path returned by `DownloadManager` (`COLUMN_LOCAL_URI`) instead
+  of assuming a name;
+- reads the downloaded APK with `getPackageArchiveInfo` and refuses to install it
+  unless its `versionCode` matches the one advertised in `update.json`, deleting
+  the file and reporting "Downloaded build N instead of M" if it does not.
+
+That last check turns a silent no-op into a visible error, which is what would
+have caught the original bug instead of leaving you on the old version.
+
 ---
 
 ## Layout reference
