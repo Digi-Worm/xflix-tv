@@ -107,8 +107,12 @@ class UpdateChecker(context: Context) {
                 .build()
 
             val request = okhttp3.Request.Builder()
-                .url(MANIFEST_URL)
+                // raw.githubusercontent.com sits behind a CDN that caches for
+                // several minutes; a unique query string forces a fresh copy so a
+                // push is visible immediately instead of "tomorrow, maybe".
+                .url("$MANIFEST_URL?t=${System.currentTimeMillis() / 60_000}")
                 .header("Cache-Control", "no-cache")
+                .header("Pragma", "no-cache")
                 .build()
 
             val response = client.newCall(request).execute()
