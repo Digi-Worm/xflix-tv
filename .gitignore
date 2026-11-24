@@ -27,6 +27,7 @@ backups/
 
 # Packaged release builds live on disk and on the desktop package only. They are
 # ~46 MB binaries, so tracking them would double the repository size every build.
+!release/*.apk
 release/
 
 # Signing material must never enter history.
