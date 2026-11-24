@@ -1,7 +1,7 @@
 {
-  "versionCode": 20,
+  "versionCode": 22,
   "versionName": "2.2.0",
-  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b20.apk",
-  "notes": "Fix manual update check failing on phones, one-tap download and install, fast cast discovery.",
-  "publishedAt": "2026-11-25T00:30:00Z"
+  "apkUrl": "https://raw.githubusercontent.com/Digi-Worm/xflix-tv/main/release/DigiX-TV-v2.2.0-b22.apk",
+  "notes": "Show the exact installed build in Settings, generic update messages, one-tap download and install, fast cast discovery.",
+  "publishedAt": "2026-11-25T01:30:00Z"
 }

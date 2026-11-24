@@ -105,7 +105,14 @@ fun SettingsScreen(
         }
 
         SettingLine("App Name", "Digi X TV")
-        SettingLine("Version", "${dev.digi.digix.BuildConfig.VERSION_NAME} (TV / Mobile)")
+        // Show the exact build. versionName now encodes it (e.g. 2.2.0-b21) and
+        // the raw versionCode is included so two builds can always be told apart,
+        // which is what "is my TV actually updated?" depends on.
+        SettingLine(
+            "Version",
+            "${dev.digi.digix.BuildConfig.VERSION_NAME} " +
+                "(build ${dev.digi.digix.BuildConfig.VERSION_CODE} · TV / Mobile)"
+        )
 
         // Manual update check. Automatic checks run at most once a day, so this is
         // the path a user takes when they know a release just shipped.
